@@ -1,9 +1,0 @@
-build/
-build_viz/
-.vs/
-out/
-*.exe
-*.obj
-*.pdb
-*.ilk
-*.user

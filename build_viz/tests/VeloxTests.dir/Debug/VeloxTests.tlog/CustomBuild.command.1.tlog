@@ -1,0 +1,10 @@
+^E:\RESUME\PHYSICSENGINE\TESTS\CMAKELISTS.TXT
+setlocal
+D:\CMake\bin\cmake.exe -SE:/Resume/PhysicsEngine -BE:/Resume/PhysicsEngine/build_viz --check-stamp-file E:/Resume/PhysicsEngine/build_viz/tests/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
