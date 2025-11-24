@@ -1,4 +1,4 @@
-# Install script for directory: E:/Resume/PhysicsEngine/tests
+# Install script for directory: E:/Resume/Velox/tests
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -35,6 +35,6 @@ endif()
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
 if(CMAKE_INSTALL_LOCAL_ONLY)
-  file(WRITE "E:/Resume/PhysicsEngine/build_viz/tests/install_local_manifest.txt"
+  file(WRITE "E:/Resume/Velox/build_viz/tests/install_local_manifest.txt"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")
 endif()

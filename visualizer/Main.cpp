@@ -42,8 +42,8 @@ int main() {
 
     InitWindow(screenWidth, screenHeight, "Velox Physics Engine - Visualizer");
 
-    // Load Icon
-    Image icon = LoadImage("assets/velox_icon.png");
+    // Load Window Icon
+    Image icon = LoadImage("assets/velox_icon_window.png");
     SetWindowIcon(icon);
     UnloadImage(icon);
 

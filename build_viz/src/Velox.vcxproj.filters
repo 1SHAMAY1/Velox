@@ -1,45 +1,45 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="E:\Resume\PhysicsEngine\src\api\PhysicsEngineAPI.cpp">
+    <ClCompile Include="E:\Resume\Velox\src\api\PhysicsEngineAPI.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="E:\Resume\PhysicsEngine\src\core\ECS.cpp">
+    <ClCompile Include="E:\Resume\Velox\src\core\ECS.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="E:\Resume\PhysicsEngine\src\physics\PhysicsSystem.cpp">
+    <ClCompile Include="E:\Resume\Velox\src\physics\PhysicsSystem.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="E:\Resume\PhysicsEngine\src\core\ECS.h">
+    <ClInclude Include="E:\Resume\Velox\src\core\ECS.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="E:\Resume\PhysicsEngine\src\core\World.h">
+    <ClInclude Include="E:\Resume\Velox\src\core\World.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="E:\Resume\PhysicsEngine\src\math\Quat.h">
+    <ClInclude Include="E:\Resume\Velox\src\math\Quat.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="E:\Resume\PhysicsEngine\src\math\Vec3.h">
+    <ClInclude Include="E:\Resume\Velox\src\math\Vec3.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="E:\Resume\PhysicsEngine\src\physics\Components.h">
+    <ClInclude Include="E:\Resume\Velox\src\physics\Components.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="E:\Resume\PhysicsEngine\src\physics\PhysicsSystem.h">
+    <ClInclude Include="E:\Resume\Velox\src\physics\PhysicsSystem.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <CustomBuild Include="E:\Resume\PhysicsEngine\src\CMakeLists.txt" />
+    <CustomBuild Include="E:\Resume\Velox\src\CMakeLists.txt" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Header Files">
-      <UniqueIdentifier>{919CC839-4368-3075-AC3F-B5106D2251C3}</UniqueIdentifier>
+      <UniqueIdentifier>{FBBA1A7A-1287-3CC2-9604-1FBA7F24B5D6}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source Files">
-      <UniqueIdentifier>{EFA92CC5-283E-3591-A27D-26A455A81AF2}</UniqueIdentifier>
+      <UniqueIdentifier>{349AD674-E87E-363E-9D4B-6ADBB116F4CB}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

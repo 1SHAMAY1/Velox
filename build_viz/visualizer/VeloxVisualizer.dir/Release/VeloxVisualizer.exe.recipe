@@ -2,13 +2,13 @@
 <Project>
   <ProjectOutputs>
     <ProjectOutput>
-      <FullPath>E:\Resume\PhysicsEngine\build_viz\x64\Release\ZERO_CHECK</FullPath>
+      <FullPath>E:\Resume\Velox\build_viz\x64\Release\ZERO_CHECK</FullPath>
     </ProjectOutput>
     <ProjectOutput>
-      <FullPath>E:\Resume\PhysicsEngine\build_viz\bin\Release\Velox.dll</FullPath>
+      <FullPath>E:\Resume\Velox\build_viz\bin\Release\Velox.dll</FullPath>
     </ProjectOutput>
     <ProjectOutput>
-      <FullPath>E:\Resume\PhysicsEngine\build_viz\bin\Release\VeloxVisualizer.exe</FullPath>
+      <FullPath>E:\Resume\Velox\build_viz\bin\Release\VeloxVisualizer.exe</FullPath>
     </ProjectOutput>
   </ProjectOutputs>
   <ContentFiles />

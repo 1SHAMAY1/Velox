@@ -2,10 +2,10 @@
 <Project>
   <ProjectOutputs>
     <ProjectOutput>
-      <FullPath>E:\Resume\PhysicsEngine\build_viz\_deps\raylib-subbuild\x64\Debug\ZERO_CHECK</FullPath>
+      <FullPath>E:\Resume\Velox\build_viz\_deps\raylib-subbuild\x64\Debug\ZERO_CHECK</FullPath>
     </ProjectOutput>
     <ProjectOutput>
-      <FullPath>E:\Resume\PhysicsEngine\build_viz\_deps\raylib-subbuild\x64\Debug\raylib-populate</FullPath>
+      <FullPath>E:\Resume\Velox\build_viz\_deps\raylib-subbuild\x64\Debug\raylib-populate</FullPath>
     </ProjectOutput>
   </ProjectOutputs>
   <ContentFiles />

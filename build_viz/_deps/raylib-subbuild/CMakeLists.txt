@@ -20,8 +20,8 @@ project(raylib-populate NONE)
 include(ExternalProject)
 ExternalProject_Add(raylib-populate
                      "UPDATE_DISCONNECTED" "False" "DOWNLOAD_EXTRACT_TIMESTAMP" "TRUE" "EXTERNALPROJECT_INTERNAL_ARGUMENT_SEPARATOR" "URL" "https://github.com/raysan5/raylib/archive/refs/heads/master.tar.gz"
-                    SOURCE_DIR          "E:/Resume/PhysicsEngine/build_viz/_deps/raylib-src"
-                    BINARY_DIR          "E:/Resume/PhysicsEngine/build_viz/_deps/raylib-build"
+                    SOURCE_DIR          "E:/Resume/Velox/build_viz/_deps/raylib-src"
+                    BINARY_DIR          "E:/Resume/Velox/build_viz/_deps/raylib-build"
                     CONFIGURE_COMMAND   ""
                     BUILD_COMMAND       ""
                     INSTALL_COMMAND     ""

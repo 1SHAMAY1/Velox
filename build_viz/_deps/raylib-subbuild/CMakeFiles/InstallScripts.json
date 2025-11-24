@@ -1,7 +1,7 @@
 {
 	"InstallScripts" : 
 	[
-		"E:/Resume/PhysicsEngine/build_viz/_deps/raylib-subbuild/cmake_install.cmake"
+		"E:/Resume/Velox/build_viz/_deps/raylib-subbuild/cmake_install.cmake"
 	],
 	"Parallel" : false
 }

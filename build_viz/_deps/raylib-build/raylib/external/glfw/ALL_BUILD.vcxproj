@@ -25,7 +25,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{37BB1E7F-5860-3841-A549-7CD174798F8B}</ProjectGuid>
+    <ProjectGuid>{CBFEFE96-EF4C-3D46-9E07-6E08F2B09718}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <WindowsTargetPlatformVersion>10.0.26100.0</WindowsTargetPlatformVersion>
     <Platform>x64</Platform>
@@ -108,11 +108,11 @@
     </Midl>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <CustomBuild Include="E:\Resume\PhysicsEngine\build_viz\_deps\raylib-src\src\external\glfw\CMakeLists.txt">
+    <CustomBuild Include="E:\Resume\Velox\build_viz\_deps\raylib-src\src\external\glfw\CMakeLists.txt">
       <UseUtf8Encoding>Always</UseUtf8Encoding>
-      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Building Custom Rule E:/Resume/PhysicsEngine/build_viz/_deps/raylib-src/src/external/glfw/CMakeLists.txt</Message>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Building Custom Rule E:/Resume/Velox/build_viz/_deps/raylib-src/src/external/glfw/CMakeLists.txt</Message>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
-D:\CMake\bin\cmake.exe -SE:/Resume/PhysicsEngine -BE:/Resume/PhysicsEngine/build_viz --check-stamp-file E:/Resume/PhysicsEngine/build_viz/_deps/raylib-build/raylib/external/glfw/CMakeFiles/generate.stamp
+D:\CMake\bin\cmake.exe -SE:/Resume/Velox -BE:/Resume/Velox/build_viz --check-stamp-file E:/Resume/Velox/build_viz/_deps/raylib-build/raylib/external/glfw/CMakeFiles/generate.stamp
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
 endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
@@ -120,12 +120,12 @@ endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
 exit /b %1
 :cmDone
 if %errorlevel% neq 0 goto :VCEnd</Command>
-      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">D:\CMake\share\cmake-4.1\Modules\BasicConfigVersion-SameMajorVersion.cmake.in;D:\CMake\share\cmake-4.1\Modules\CMakeDependentOption.cmake;D:\CMake\share\cmake-4.1\Modules\CMakePackageConfigHelpers.cmake;D:\CMake\share\cmake-4.1\Modules\CheckCSourceCompiles.cmake;D:\CMake\share\cmake-4.1\Modules\CheckIncludeFile.cmake;D:\CMake\share\cmake-4.1\Modules\CheckLibraryExists.cmake;D:\CMake\share\cmake-4.1\Modules\FindPackageHandleStandardArgs.cmake;D:\CMake\share\cmake-4.1\Modules\FindPackageMessage.cmake;D:\CMake\share\cmake-4.1\Modules\FindThreads.cmake;D:\CMake\share\cmake-4.1\Modules\GNUInstallDirs.cmake;D:\CMake\share\cmake-4.1\Modules\WriteBasicConfigVersionFile.cmake;E:\Resume\PhysicsEngine\build_viz\_deps\raylib-src\src\external\glfw\CMake\glfw3Config.cmake.in;%(AdditionalInputs)</AdditionalInputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">E:\Resume\PhysicsEngine\build_viz\_deps\raylib-build\raylib\external\glfw\CMakeFiles\generate.stamp</Outputs>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">D:\CMake\share\cmake-4.1\Modules\BasicConfigVersion-SameMajorVersion.cmake.in;D:\CMake\share\cmake-4.1\Modules\CMakeDependentOption.cmake;D:\CMake\share\cmake-4.1\Modules\CMakePackageConfigHelpers.cmake;D:\CMake\share\cmake-4.1\Modules\CheckCSourceCompiles.cmake;D:\CMake\share\cmake-4.1\Modules\CheckIncludeFile.cmake;D:\CMake\share\cmake-4.1\Modules\CheckLibraryExists.cmake;D:\CMake\share\cmake-4.1\Modules\FindPackageHandleStandardArgs.cmake;D:\CMake\share\cmake-4.1\Modules\FindPackageMessage.cmake;D:\CMake\share\cmake-4.1\Modules\FindThreads.cmake;D:\CMake\share\cmake-4.1\Modules\GNUInstallDirs.cmake;D:\CMake\share\cmake-4.1\Modules\WriteBasicConfigVersionFile.cmake;E:\Resume\Velox\build_viz\_deps\raylib-src\src\external\glfw\CMake\glfw3Config.cmake.in;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">E:\Resume\Velox\build_viz\_deps\raylib-build\raylib\external\glfw\CMakeFiles\generate.stamp</Outputs>
       <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
-      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Building Custom Rule E:/Resume/PhysicsEngine/build_viz/_deps/raylib-src/src/external/glfw/CMakeLists.txt</Message>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Building Custom Rule E:/Resume/Velox/build_viz/_deps/raylib-src/src/external/glfw/CMakeLists.txt</Message>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
-D:\CMake\bin\cmake.exe -SE:/Resume/PhysicsEngine -BE:/Resume/PhysicsEngine/build_viz --check-stamp-file E:/Resume/PhysicsEngine/build_viz/_deps/raylib-build/raylib/external/glfw/CMakeFiles/generate.stamp
+D:\CMake\bin\cmake.exe -SE:/Resume/Velox -BE:/Resume/Velox/build_viz --check-stamp-file E:/Resume/Velox/build_viz/_deps/raylib-build/raylib/external/glfw/CMakeFiles/generate.stamp
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
 endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
@@ -133,12 +133,12 @@ endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
 exit /b %1
 :cmDone
 if %errorlevel% neq 0 goto :VCEnd</Command>
-      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">D:\CMake\share\cmake-4.1\Modules\BasicConfigVersion-SameMajorVersion.cmake.in;D:\CMake\share\cmake-4.1\Modules\CMakeDependentOption.cmake;D:\CMake\share\cmake-4.1\Modules\CMakePackageConfigHelpers.cmake;D:\CMake\share\cmake-4.1\Modules\CheckCSourceCompiles.cmake;D:\CMake\share\cmake-4.1\Modules\CheckIncludeFile.cmake;D:\CMake\share\cmake-4.1\Modules\CheckLibraryExists.cmake;D:\CMake\share\cmake-4.1\Modules\FindPackageHandleStandardArgs.cmake;D:\CMake\share\cmake-4.1\Modules\FindPackageMessage.cmake;D:\CMake\share\cmake-4.1\Modules\FindThreads.cmake;D:\CMake\share\cmake-4.1\Modules\GNUInstallDirs.cmake;D:\CMake\share\cmake-4.1\Modules\WriteBasicConfigVersionFile.cmake;E:\Resume\PhysicsEngine\build_viz\_deps\raylib-src\src\external\glfw\CMake\glfw3Config.cmake.in;%(AdditionalInputs)</AdditionalInputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">E:\Resume\PhysicsEngine\build_viz\_deps\raylib-build\raylib\external\glfw\CMakeFiles\generate.stamp</Outputs>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">D:\CMake\share\cmake-4.1\Modules\BasicConfigVersion-SameMajorVersion.cmake.in;D:\CMake\share\cmake-4.1\Modules\CMakeDependentOption.cmake;D:\CMake\share\cmake-4.1\Modules\CMakePackageConfigHelpers.cmake;D:\CMake\share\cmake-4.1\Modules\CheckCSourceCompiles.cmake;D:\CMake\share\cmake-4.1\Modules\CheckIncludeFile.cmake;D:\CMake\share\cmake-4.1\Modules\CheckLibraryExists.cmake;D:\CMake\share\cmake-4.1\Modules\FindPackageHandleStandardArgs.cmake;D:\CMake\share\cmake-4.1\Modules\FindPackageMessage.cmake;D:\CMake\share\cmake-4.1\Modules\FindThreads.cmake;D:\CMake\share\cmake-4.1\Modules\GNUInstallDirs.cmake;D:\CMake\share\cmake-4.1\Modules\WriteBasicConfigVersionFile.cmake;E:\Resume\Velox\build_viz\_deps\raylib-src\src\external\glfw\CMake\glfw3Config.cmake.in;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">E:\Resume\Velox\build_viz\_deps\raylib-build\raylib\external\glfw\CMakeFiles\generate.stamp</Outputs>
       <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
-      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Building Custom Rule E:/Resume/PhysicsEngine/build_viz/_deps/raylib-src/src/external/glfw/CMakeLists.txt</Message>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Building Custom Rule E:/Resume/Velox/build_viz/_deps/raylib-src/src/external/glfw/CMakeLists.txt</Message>
       <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
-D:\CMake\bin\cmake.exe -SE:/Resume/PhysicsEngine -BE:/Resume/PhysicsEngine/build_viz --check-stamp-file E:/Resume/PhysicsEngine/build_viz/_deps/raylib-build/raylib/external/glfw/CMakeFiles/generate.stamp
+D:\CMake\bin\cmake.exe -SE:/Resume/Velox -BE:/Resume/Velox/build_viz --check-stamp-file E:/Resume/Velox/build_viz/_deps/raylib-build/raylib/external/glfw/CMakeFiles/generate.stamp
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
 endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
@@ -146,12 +146,12 @@ endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
 exit /b %1
 :cmDone
 if %errorlevel% neq 0 goto :VCEnd</Command>
-      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">D:\CMake\share\cmake-4.1\Modules\BasicConfigVersion-SameMajorVersion.cmake.in;D:\CMake\share\cmake-4.1\Modules\CMakeDependentOption.cmake;D:\CMake\share\cmake-4.1\Modules\CMakePackageConfigHelpers.cmake;D:\CMake\share\cmake-4.1\Modules\CheckCSourceCompiles.cmake;D:\CMake\share\cmake-4.1\Modules\CheckIncludeFile.cmake;D:\CMake\share\cmake-4.1\Modules\CheckLibraryExists.cmake;D:\CMake\share\cmake-4.1\Modules\FindPackageHandleStandardArgs.cmake;D:\CMake\share\cmake-4.1\Modules\FindPackageMessage.cmake;D:\CMake\share\cmake-4.1\Modules\FindThreads.cmake;D:\CMake\share\cmake-4.1\Modules\GNUInstallDirs.cmake;D:\CMake\share\cmake-4.1\Modules\WriteBasicConfigVersionFile.cmake;E:\Resume\PhysicsEngine\build_viz\_deps\raylib-src\src\external\glfw\CMake\glfw3Config.cmake.in;%(AdditionalInputs)</AdditionalInputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">E:\Resume\PhysicsEngine\build_viz\_deps\raylib-build\raylib\external\glfw\CMakeFiles\generate.stamp</Outputs>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">D:\CMake\share\cmake-4.1\Modules\BasicConfigVersion-SameMajorVersion.cmake.in;D:\CMake\share\cmake-4.1\Modules\CMakeDependentOption.cmake;D:\CMake\share\cmake-4.1\Modules\CMakePackageConfigHelpers.cmake;D:\CMake\share\cmake-4.1\Modules\CheckCSourceCompiles.cmake;D:\CMake\share\cmake-4.1\Modules\CheckIncludeFile.cmake;D:\CMake\share\cmake-4.1\Modules\CheckLibraryExists.cmake;D:\CMake\share\cmake-4.1\Modules\FindPackageHandleStandardArgs.cmake;D:\CMake\share\cmake-4.1\Modules\FindPackageMessage.cmake;D:\CMake\share\cmake-4.1\Modules\FindThreads.cmake;D:\CMake\share\cmake-4.1\Modules\GNUInstallDirs.cmake;D:\CMake\share\cmake-4.1\Modules\WriteBasicConfigVersionFile.cmake;E:\Resume\Velox\build_viz\_deps\raylib-src\src\external\glfw\CMake\glfw3Config.cmake.in;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">E:\Resume\Velox\build_viz\_deps\raylib-build\raylib\external\glfw\CMakeFiles\generate.stamp</Outputs>
       <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
-      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Building Custom Rule E:/Resume/PhysicsEngine/build_viz/_deps/raylib-src/src/external/glfw/CMakeLists.txt</Message>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Building Custom Rule E:/Resume/Velox/build_viz/_deps/raylib-src/src/external/glfw/CMakeLists.txt</Message>
       <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
-D:\CMake\bin\cmake.exe -SE:/Resume/PhysicsEngine -BE:/Resume/PhysicsEngine/build_viz --check-stamp-file E:/Resume/PhysicsEngine/build_viz/_deps/raylib-build/raylib/external/glfw/CMakeFiles/generate.stamp
+D:\CMake\bin\cmake.exe -SE:/Resume/Velox -BE:/Resume/Velox/build_viz --check-stamp-file E:/Resume/Velox/build_viz/_deps/raylib-build/raylib/external/glfw/CMakeFiles/generate.stamp
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
 endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
@@ -159,8 +159,8 @@ endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
 exit /b %1
 :cmDone
 if %errorlevel% neq 0 goto :VCEnd</Command>
-      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">D:\CMake\share\cmake-4.1\Modules\BasicConfigVersion-SameMajorVersion.cmake.in;D:\CMake\share\cmake-4.1\Modules\CMakeDependentOption.cmake;D:\CMake\share\cmake-4.1\Modules\CMakePackageConfigHelpers.cmake;D:\CMake\share\cmake-4.1\Modules\CheckCSourceCompiles.cmake;D:\CMake\share\cmake-4.1\Modules\CheckIncludeFile.cmake;D:\CMake\share\cmake-4.1\Modules\CheckLibraryExists.cmake;D:\CMake\share\cmake-4.1\Modules\FindPackageHandleStandardArgs.cmake;D:\CMake\share\cmake-4.1\Modules\FindPackageMessage.cmake;D:\CMake\share\cmake-4.1\Modules\FindThreads.cmake;D:\CMake\share\cmake-4.1\Modules\GNUInstallDirs.cmake;D:\CMake\share\cmake-4.1\Modules\WriteBasicConfigVersionFile.cmake;E:\Resume\PhysicsEngine\build_viz\_deps\raylib-src\src\external\glfw\CMake\glfw3Config.cmake.in;%(AdditionalInputs)</AdditionalInputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">E:\Resume\PhysicsEngine\build_viz\_deps\raylib-build\raylib\external\glfw\CMakeFiles\generate.stamp</Outputs>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">D:\CMake\share\cmake-4.1\Modules\BasicConfigVersion-SameMajorVersion.cmake.in;D:\CMake\share\cmake-4.1\Modules\CMakeDependentOption.cmake;D:\CMake\share\cmake-4.1\Modules\CMakePackageConfigHelpers.cmake;D:\CMake\share\cmake-4.1\Modules\CheckCSourceCompiles.cmake;D:\CMake\share\cmake-4.1\Modules\CheckIncludeFile.cmake;D:\CMake\share\cmake-4.1\Modules\CheckLibraryExists.cmake;D:\CMake\share\cmake-4.1\Modules\FindPackageHandleStandardArgs.cmake;D:\CMake\share\cmake-4.1\Modules\FindPackageMessage.cmake;D:\CMake\share\cmake-4.1\Modules\FindThreads.cmake;D:\CMake\share\cmake-4.1\Modules\GNUInstallDirs.cmake;D:\CMake\share\cmake-4.1\Modules\WriteBasicConfigVersionFile.cmake;E:\Resume\Velox\build_viz\_deps\raylib-src\src\external\glfw\CMake\glfw3Config.cmake.in;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">E:\Resume\Velox\build_viz\_deps\raylib-build\raylib\external\glfw\CMakeFiles\generate.stamp</Outputs>
       <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
     </CustomBuild>
   </ItemGroup>
@@ -168,14 +168,14 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
   </ItemGroup>
   <ItemGroup />
   <ItemGroup>
-    <ProjectReference Include="E:\Resume\PhysicsEngine\build_viz\ZERO_CHECK.vcxproj">
-      <Project>{E8FEB73A-FF9F-3CBB-9644-E61875E38EA6}</Project>
+    <ProjectReference Include="E:\Resume\Velox\build_viz\ZERO_CHECK.vcxproj">
+      <Project>{D25A6DC3-27A0-3DD0-9D16-39C8BF9AF231}</Project>
       <Name>ZERO_CHECK</Name>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </ProjectReference>
-    <ProjectReference Include="E:\Resume\PhysicsEngine\build_viz\_deps\raylib-build\raylib\external\glfw\src\glfw.vcxproj">
-      <Project>{3FE19BD7-50C1-343D-A6FC-1146E541CECD}</Project>
+    <ProjectReference Include="E:\Resume\Velox\build_viz\_deps\raylib-build\raylib\external\glfw\src\glfw.vcxproj">
+      <Project>{E50294A7-CE85-3495-BF91-66BA1BA9264E}</Project>
       <Name>glfw</Name>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>

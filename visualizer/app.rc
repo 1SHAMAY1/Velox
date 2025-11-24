@@ -8,4 +8,4 @@
 #undef APSTUDIO_READONLY_SYMBOLS
 
 // Icon - Use path relative to source root
-IDI_ICON1 ICON "..\\assets\\velox_icon.ico"
+IDI_ICON1 ICON "..\\assets\\velox_icon_exe.ico"

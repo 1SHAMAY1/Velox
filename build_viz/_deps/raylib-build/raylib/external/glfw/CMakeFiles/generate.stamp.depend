@@ -10,5 +10,5 @@ D:/CMake/share/cmake-4.1/Modules/FindPackageMessage.cmake
 D:/CMake/share/cmake-4.1/Modules/FindThreads.cmake
 D:/CMake/share/cmake-4.1/Modules/GNUInstallDirs.cmake
 D:/CMake/share/cmake-4.1/Modules/WriteBasicConfigVersionFile.cmake
-E:/Resume/PhysicsEngine/build_viz/_deps/raylib-src/src/external/glfw/CMake/glfw3Config.cmake.in
-E:/Resume/PhysicsEngine/build_viz/_deps/raylib-src/src/external/glfw/CMakeLists.txt
+E:/Resume/Velox/build_viz/_deps/raylib-src/src/external/glfw/CMake/glfw3Config.cmake.in
+E:/Resume/Velox/build_viz/_deps/raylib-src/src/external/glfw/CMakeLists.txt

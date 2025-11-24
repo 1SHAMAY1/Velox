@@ -3,9 +3,9 @@
 # No other meaning or use of this file is supported.
 
 method=url
-command=D:/CMake/bin/cmake.exe;-DCMAKE_MESSAGE_LOG_LEVEL=VERBOSE;-P;E:/Resume/PhysicsEngine/build_viz/_deps/raylib-subbuild/raylib-populate-prefix/src/raylib-populate-stamp/download-raylib-populate.cmake;COMMAND;D:/CMake/bin/cmake.exe;-DCMAKE_MESSAGE_LOG_LEVEL=VERBOSE;-P;E:/Resume/PhysicsEngine/build_viz/_deps/raylib-subbuild/raylib-populate-prefix/src/raylib-populate-stamp/verify-raylib-populate.cmake;COMMAND;D:/CMake/bin/cmake.exe;-DCMAKE_MESSAGE_LOG_LEVEL=VERBOSE;-P;E:/Resume/PhysicsEngine/build_viz/_deps/raylib-subbuild/raylib-populate-prefix/src/raylib-populate-stamp/extract-raylib-populate.cmake
-source_dir=E:/Resume/PhysicsEngine/build_viz/_deps/raylib-src
-work_dir=E:/Resume/PhysicsEngine/build_viz/_deps
+command=D:/CMake/bin/cmake.exe;-DCMAKE_MESSAGE_LOG_LEVEL=VERBOSE;-P;E:/Resume/Velox/build_viz/_deps/raylib-subbuild/raylib-populate-prefix/src/raylib-populate-stamp/download-raylib-populate.cmake;COMMAND;D:/CMake/bin/cmake.exe;-DCMAKE_MESSAGE_LOG_LEVEL=VERBOSE;-P;E:/Resume/Velox/build_viz/_deps/raylib-subbuild/raylib-populate-prefix/src/raylib-populate-stamp/verify-raylib-populate.cmake;COMMAND;D:/CMake/bin/cmake.exe;-DCMAKE_MESSAGE_LOG_LEVEL=VERBOSE;-P;E:/Resume/Velox/build_viz/_deps/raylib-subbuild/raylib-populate-prefix/src/raylib-populate-stamp/extract-raylib-populate.cmake
+source_dir=E:/Resume/Velox/build_viz/_deps/raylib-src
+work_dir=E:/Resume/Velox/build_viz/_deps
 url(s)=https://github.com/raysan5/raylib/archive/refs/heads/master.tar.gz
 hash=
       no_extract=

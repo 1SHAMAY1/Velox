@@ -1,119 +1,119 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="E:\Resume\PhysicsEngine\build_viz\_deps\raylib-src\src\raudio.c">
+    <ClCompile Include="E:\Resume\Velox\build_viz\_deps\raylib-src\src\raudio.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="E:\Resume\PhysicsEngine\build_viz\_deps\raylib-src\src\rcore.c">
+    <ClCompile Include="E:\Resume\Velox\build_viz\_deps\raylib-src\src\rcore.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="E:\Resume\PhysicsEngine\build_viz\_deps\raylib-src\src\rmodels.c">
+    <ClCompile Include="E:\Resume\Velox\build_viz\_deps\raylib-src\src\rmodels.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="E:\Resume\PhysicsEngine\build_viz\_deps\raylib-src\src\rshapes.c">
+    <ClCompile Include="E:\Resume\Velox\build_viz\_deps\raylib-src\src\rshapes.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="E:\Resume\PhysicsEngine\build_viz\_deps\raylib-src\src\rtext.c">
+    <ClCompile Include="E:\Resume\Velox\build_viz\_deps\raylib-src\src\rtext.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="E:\Resume\PhysicsEngine\build_viz\_deps\raylib-src\src\rtextures.c">
+    <ClCompile Include="E:\Resume\Velox\build_viz\_deps\raylib-src\src\rtextures.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="E:\Resume\PhysicsEngine\build_viz\_deps\raylib-src\src\utils.c">
+    <ClCompile Include="E:\Resume\Velox\build_viz\_deps\raylib-src\src\utils.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="E:\Resume\PhysicsEngine\build_viz\_deps\raylib-src\src\raylib.h">
+    <ClInclude Include="E:\Resume\Velox\build_viz\_deps\raylib-src\src\raylib.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="E:\Resume\PhysicsEngine\build_viz\_deps\raylib-src\src\rcamera.h">
+    <ClInclude Include="E:\Resume\Velox\build_viz\_deps\raylib-src\src\rcamera.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="E:\Resume\PhysicsEngine\build_viz\_deps\raylib-src\src\rlgl.h">
+    <ClInclude Include="E:\Resume\Velox\build_viz\_deps\raylib-src\src\rlgl.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="E:\Resume\PhysicsEngine\build_viz\_deps\raylib-src\src\raymath.h">
+    <ClInclude Include="E:\Resume\Velox\build_viz\_deps\raylib-src\src\raymath.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <CustomBuild Include="E:\Resume\PhysicsEngine\build_viz\_deps\raylib-src\src\CMakeLists.txt" />
+    <CustomBuild Include="E:\Resume\Velox\build_viz\_deps\raylib-src\src\CMakeLists.txt" />
   </ItemGroup>
   <ItemGroup>
-    <Object Include="E:\Resume\PhysicsEngine\build_viz\_deps\raylib-build\raylib\external\glfw\src\glfw.dir\$(Configuration)\context.obj">
+    <Object Include="E:\Resume\Velox\build_viz\_deps\raylib-build\raylib\external\glfw\src\glfw.dir\$(Configuration)\context.obj">
       <Filter>Object Libraries</Filter>
     </Object>
-    <Object Include="E:\Resume\PhysicsEngine\build_viz\_deps\raylib-build\raylib\external\glfw\src\glfw.dir\$(Configuration)\init.obj">
+    <Object Include="E:\Resume\Velox\build_viz\_deps\raylib-build\raylib\external\glfw\src\glfw.dir\$(Configuration)\init.obj">
       <Filter>Object Libraries</Filter>
     </Object>
-    <Object Include="E:\Resume\PhysicsEngine\build_viz\_deps\raylib-build\raylib\external\glfw\src\glfw.dir\$(Configuration)\input.obj">
+    <Object Include="E:\Resume\Velox\build_viz\_deps\raylib-build\raylib\external\glfw\src\glfw.dir\$(Configuration)\input.obj">
       <Filter>Object Libraries</Filter>
     </Object>
-    <Object Include="E:\Resume\PhysicsEngine\build_viz\_deps\raylib-build\raylib\external\glfw\src\glfw.dir\$(Configuration)\monitor.obj">
+    <Object Include="E:\Resume\Velox\build_viz\_deps\raylib-build\raylib\external\glfw\src\glfw.dir\$(Configuration)\monitor.obj">
       <Filter>Object Libraries</Filter>
     </Object>
-    <Object Include="E:\Resume\PhysicsEngine\build_viz\_deps\raylib-build\raylib\external\glfw\src\glfw.dir\$(Configuration)\platform.obj">
+    <Object Include="E:\Resume\Velox\build_viz\_deps\raylib-build\raylib\external\glfw\src\glfw.dir\$(Configuration)\platform.obj">
       <Filter>Object Libraries</Filter>
     </Object>
-    <Object Include="E:\Resume\PhysicsEngine\build_viz\_deps\raylib-build\raylib\external\glfw\src\glfw.dir\$(Configuration)\vulkan.obj">
+    <Object Include="E:\Resume\Velox\build_viz\_deps\raylib-build\raylib\external\glfw\src\glfw.dir\$(Configuration)\vulkan.obj">
       <Filter>Object Libraries</Filter>
     </Object>
-    <Object Include="E:\Resume\PhysicsEngine\build_viz\_deps\raylib-build\raylib\external\glfw\src\glfw.dir\$(Configuration)\window.obj">
+    <Object Include="E:\Resume\Velox\build_viz\_deps\raylib-build\raylib\external\glfw\src\glfw.dir\$(Configuration)\window.obj">
       <Filter>Object Libraries</Filter>
     </Object>
-    <Object Include="E:\Resume\PhysicsEngine\build_viz\_deps\raylib-build\raylib\external\glfw\src\glfw.dir\$(Configuration)\egl_context.obj">
+    <Object Include="E:\Resume\Velox\build_viz\_deps\raylib-build\raylib\external\glfw\src\glfw.dir\$(Configuration)\egl_context.obj">
       <Filter>Object Libraries</Filter>
     </Object>
-    <Object Include="E:\Resume\PhysicsEngine\build_viz\_deps\raylib-build\raylib\external\glfw\src\glfw.dir\$(Configuration)\osmesa_context.obj">
+    <Object Include="E:\Resume\Velox\build_viz\_deps\raylib-build\raylib\external\glfw\src\glfw.dir\$(Configuration)\osmesa_context.obj">
       <Filter>Object Libraries</Filter>
     </Object>
-    <Object Include="E:\Resume\PhysicsEngine\build_viz\_deps\raylib-build\raylib\external\glfw\src\glfw.dir\$(Configuration)\null_init.obj">
+    <Object Include="E:\Resume\Velox\build_viz\_deps\raylib-build\raylib\external\glfw\src\glfw.dir\$(Configuration)\null_init.obj">
       <Filter>Object Libraries</Filter>
     </Object>
-    <Object Include="E:\Resume\PhysicsEngine\build_viz\_deps\raylib-build\raylib\external\glfw\src\glfw.dir\$(Configuration)\null_monitor.obj">
+    <Object Include="E:\Resume\Velox\build_viz\_deps\raylib-build\raylib\external\glfw\src\glfw.dir\$(Configuration)\null_monitor.obj">
       <Filter>Object Libraries</Filter>
     </Object>
-    <Object Include="E:\Resume\PhysicsEngine\build_viz\_deps\raylib-build\raylib\external\glfw\src\glfw.dir\$(Configuration)\null_window.obj">
+    <Object Include="E:\Resume\Velox\build_viz\_deps\raylib-build\raylib\external\glfw\src\glfw.dir\$(Configuration)\null_window.obj">
       <Filter>Object Libraries</Filter>
     </Object>
-    <Object Include="E:\Resume\PhysicsEngine\build_viz\_deps\raylib-build\raylib\external\glfw\src\glfw.dir\$(Configuration)\null_joystick.obj">
+    <Object Include="E:\Resume\Velox\build_viz\_deps\raylib-build\raylib\external\glfw\src\glfw.dir\$(Configuration)\null_joystick.obj">
       <Filter>Object Libraries</Filter>
     </Object>
-    <Object Include="E:\Resume\PhysicsEngine\build_viz\_deps\raylib-build\raylib\external\glfw\src\glfw.dir\$(Configuration)\win32_module.obj">
+    <Object Include="E:\Resume\Velox\build_viz\_deps\raylib-build\raylib\external\glfw\src\glfw.dir\$(Configuration)\win32_module.obj">
       <Filter>Object Libraries</Filter>
     </Object>
-    <Object Include="E:\Resume\PhysicsEngine\build_viz\_deps\raylib-build\raylib\external\glfw\src\glfw.dir\$(Configuration)\win32_time.obj">
+    <Object Include="E:\Resume\Velox\build_viz\_deps\raylib-build\raylib\external\glfw\src\glfw.dir\$(Configuration)\win32_time.obj">
       <Filter>Object Libraries</Filter>
     </Object>
-    <Object Include="E:\Resume\PhysicsEngine\build_viz\_deps\raylib-build\raylib\external\glfw\src\glfw.dir\$(Configuration)\win32_thread.obj">
+    <Object Include="E:\Resume\Velox\build_viz\_deps\raylib-build\raylib\external\glfw\src\glfw.dir\$(Configuration)\win32_thread.obj">
       <Filter>Object Libraries</Filter>
     </Object>
-    <Object Include="E:\Resume\PhysicsEngine\build_viz\_deps\raylib-build\raylib\external\glfw\src\glfw.dir\$(Configuration)\win32_init.obj">
+    <Object Include="E:\Resume\Velox\build_viz\_deps\raylib-build\raylib\external\glfw\src\glfw.dir\$(Configuration)\win32_init.obj">
       <Filter>Object Libraries</Filter>
     </Object>
-    <Object Include="E:\Resume\PhysicsEngine\build_viz\_deps\raylib-build\raylib\external\glfw\src\glfw.dir\$(Configuration)\win32_joystick.obj">
+    <Object Include="E:\Resume\Velox\build_viz\_deps\raylib-build\raylib\external\glfw\src\glfw.dir\$(Configuration)\win32_joystick.obj">
       <Filter>Object Libraries</Filter>
     </Object>
-    <Object Include="E:\Resume\PhysicsEngine\build_viz\_deps\raylib-build\raylib\external\glfw\src\glfw.dir\$(Configuration)\win32_monitor.obj">
+    <Object Include="E:\Resume\Velox\build_viz\_deps\raylib-build\raylib\external\glfw\src\glfw.dir\$(Configuration)\win32_monitor.obj">
       <Filter>Object Libraries</Filter>
     </Object>
-    <Object Include="E:\Resume\PhysicsEngine\build_viz\_deps\raylib-build\raylib\external\glfw\src\glfw.dir\$(Configuration)\win32_window.obj">
+    <Object Include="E:\Resume\Velox\build_viz\_deps\raylib-build\raylib\external\glfw\src\glfw.dir\$(Configuration)\win32_window.obj">
       <Filter>Object Libraries</Filter>
     </Object>
-    <Object Include="E:\Resume\PhysicsEngine\build_viz\_deps\raylib-build\raylib\external\glfw\src\glfw.dir\$(Configuration)\wgl_context.obj">
+    <Object Include="E:\Resume\Velox\build_viz\_deps\raylib-build\raylib\external\glfw\src\glfw.dir\$(Configuration)\wgl_context.obj">
       <Filter>Object Libraries</Filter>
     </Object>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Header Files">
-      <UniqueIdentifier>{919CC839-4368-3075-AC3F-B5106D2251C3}</UniqueIdentifier>
+      <UniqueIdentifier>{FBBA1A7A-1287-3CC2-9604-1FBA7F24B5D6}</UniqueIdentifier>
     </Filter>
     <Filter Include="Object Libraries">
-      <UniqueIdentifier>{E298DB19-B752-3B7C-B2DB-3F8846AE1742}</UniqueIdentifier>
+      <UniqueIdentifier>{015657F5-12A7-3641-B6F9-2DD18D1E8F5B}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source Files">
-      <UniqueIdentifier>{EFA92CC5-283E-3591-A27D-26A455A81AF2}</UniqueIdentifier>
+      <UniqueIdentifier>{349AD674-E87E-363E-9D4B-6ADBB116F4CB}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>
