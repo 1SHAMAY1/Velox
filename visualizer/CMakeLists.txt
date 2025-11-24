@@ -7,7 +7,11 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(raylib)
 
-add_executable(VeloxVisualizer Main.cpp)
+if(WIN32)
+    add_executable(VeloxVisualizer Main.cpp app.rc)
+else()
+    add_executable(VeloxVisualizer Main.cpp)
+endif()
 
 # Copy assets to bin directory
 file(COPY ${CMAKE_SOURCE_DIR}/assets DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/../bin/Release)
