@@ -11,6 +11,7 @@
 *   ** Broadphase Optimization**: Spatial Hashing Grid (60x60 cells) reduces collision checks from O(N²) to O(N) average case.
 *   ** Modular Behaviors**: Plug-and-play components for Force Fields, Oscillators, and constant Rotations.
 *   ** C-API Export**: Clean, C-style API (`VeloxAPI.h`) for easy integration into other C/C++ applications or game engines.
+*   ** Visualizer**: Includes a Raylib-powered visualizer for real-time testing and debugging.
 
 ---
 
@@ -95,6 +96,39 @@ int main() {
 
 ---
 
+## 🎮 Included Demos
+
+The project comes with a **Visualizer** that showcases the engine's capabilities.
+
+### 1. Bouncing Balls (Stress Test)
+*   **Scenario**: Hundreds of balls spawn and collide within a box.
+*   **Showcases**: Broadphase efficiency, collision resolution stability, and restitution.
+*   **Interactions**: Use arrow keys to rotate the entire container!
+
+### 2. Force Fields
+*   **Scenario**: Particles interacting with invisible zones.
+*   **Types**:
+    *   🟦 **Inward**: Simulates gravity wells / black holes.
+    *   🟥 **Outward**: Simulates repulsor shields.
+    *   🟩 **Vortex**: Swirls objects clockwise or anti-clockwise.
+
+### 3. Oscillators
+*   **Scenario**: Platforms moving in perfect sine-waves (Horizontal, Vertical, Diagonal).
+*   **Mechanic**: Uses `OscillationComponent` to directly manipulate position without affecting physics velocity, allowing bodies to "ride" them.
+
+### 4. Projectiles
+*   **Scenario**: Launching arrows with the mouse.
+*   **Mechanic**: The `ProjectileComponent` ensures the arrows tip always points forward, even as gravity arcs their path.
+
+### 🎮 Visualizer Controls
+The visualizer provides a real-time view of the simulation.
+*   **Scene Selection**: Use the dropdown menu to switch between demos.
+*   **Space**: Pause/Resume simulation.
+*   **Mouse**: Interact (Spawn balls, shoot projectiles) depending on the scene.
+*   **Arrow Keys**: Rotate the container in the "Bouncing Balls" demo.
+
+---
+
 ## 🛠️ Building the Project
 
 ### Prerequisites
@@ -114,4 +148,11 @@ cd build
 # 3. Configure and Build
 cmake ..
 cmake --build . --config Release
+```
+
+### Running the Visualizer
+After building, the visualizer executable will be in `bin/Release`.
+```bash
+# Windows
+.\bin\Release\VeloxVisualizer.exe
 ```
