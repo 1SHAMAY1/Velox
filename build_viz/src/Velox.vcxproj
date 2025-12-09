@@ -357,11 +357,12 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="E:\Resume\Velox\src\api\PhysicsEngineAPI.cpp" />
-    <ClCompile Include="E:\Resume\Velox\src\core\ECS.cpp" />
-    <ClInclude Include="E:\Resume\Velox\src\core\ECS.h" />
+    <ClCompile Include="E:\Resume\Velox\src\api\VeloxAPI.cpp" />
+    <ClCompile Include="E:\Resume\Velox\src\core\VelcoxECS.cpp" />
+    <ClInclude Include="E:\Resume\Velox\src\core\VelcoxECS.h" />
     <ClInclude Include="E:\Resume\Velox\src\core\World.h" />
     <ClInclude Include="E:\Resume\Velox\src\math\Quat.h" />
+    <ClInclude Include="E:\Resume\Velox\src\math\Vec2.h" />
     <ClInclude Include="E:\Resume\Velox\src\math\Vec3.h" />
     <ClInclude Include="E:\Resume\Velox\src\physics\Components.h" />
     <ClCompile Include="E:\Resume\Velox\src\physics\PhysicsSystem.cpp" />

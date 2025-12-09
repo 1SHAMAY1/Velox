@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ECS.h"
+#include "VelcoxECS.h"
 #include "../physics/PhysicsSystem.h"
 #include <memory>
 
@@ -14,10 +14,13 @@ namespace Velox {
             // Register Components
             m_entityManager->RegisterComponent<TransformComponent>();
             m_entityManager->RegisterComponent<RigidBodyComponent>();
+            m_entityManager->RegisterComponent<MovementComponent>();
             m_entityManager->RegisterComponent<ColliderComponent>();
-            m_entityManager->RegisterComponent<PhysicsMaterialComponent>();
-            m_entityManager->RegisterComponent<RuleComponent>();
-            m_entityManager->RegisterComponent<SpringComponent>();
+            m_entityManager->RegisterComponent<ForceFieldComponent>();
+            m_entityManager->RegisterComponent<RotationComponent>();
+            m_entityManager->RegisterComponent<OscillationComponent>();
+            m_entityManager->RegisterComponent<ProjectileComponent>();
+            m_entityManager->RegisterComponent<PhysicalMaterialComponent>();
             
             m_physicsSystem = std::make_unique<PhysicsSystem>(m_entityManager);
         }

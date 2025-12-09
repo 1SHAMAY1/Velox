@@ -81,7 +81,7 @@ events:
       The output was:
       0
       MSBuild version 17.12.12+1cce77968 for .NET Framework
-      Build started 11/24/2025 3:51:58 PM.
+      Build started 12/2/2025 11:09:48 PM.
       
       Project "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\4.1.0-rc1\\CompilerIdCXX\\CompilerIdCXX.vcxproj" on node 1 (default targets).
       PrepareForBuild:
@@ -110,7 +110,7 @@ events:
           0 Warning(s)
           0 Error(s)
       
-      Time Elapsed 00:00:00.96
+      Time Elapsed 00:00:00.68
       
       
       Compilation of the CXX compiler identification source "CMakeCXXCompilerId.cpp" produced "CompilerIdCXX.exe"
@@ -978,8 +978,8 @@ events:
     checks:
       - "Detecting CXX compiler ABI info"
     directories:
-      source: "E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-442vr8"
-      binary: "E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-442vr8"
+      source: "E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-xsw2nt"
+      binary: "E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-xsw2nt"
     cmakeVariables:
       CMAKE_CXX_FLAGS: "/DWIN32 /D_WINDOWS /EHsc"
       CMAKE_CXX_FLAGS_DEBUG: "/Zi /Ob0 /Od /RTC1"
@@ -989,40 +989,40 @@ events:
       variable: "CMAKE_CXX_ABI_COMPILED"
       cached: true
       stdout: |
-        Change Dir: 'E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-442vr8'
+        Change Dir: 'E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-xsw2nt'
         
-        Run Build Command(s): D:/Installed/VisualStudio/VisualStudioIDE/MSBuild/Current/Bin/amd64/MSBuild.exe cmTC_a58b4.vcxproj /p:Configuration=Debug /p:Platform=x64 /p:VisualStudioVersion=17.0 /v:n
+        Run Build Command(s): D:/Installed/VisualStudio/VisualStudioIDE/MSBuild/Current/Bin/amd64/MSBuild.exe cmTC_b969f.vcxproj /p:Configuration=Debug /p:Platform=x64 /p:VisualStudioVersion=17.0 /v:n
         MSBuild version 17.12.12+1cce77968 for .NET Framework
-        Build started 11/24/2025 3:52:00 PM.
+        Build started 12/2/2025 11:09:49 PM.
         
-        Project "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-442vr8\\cmTC_a58b4.vcxproj" on node 1 (default targets).
+        Project "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-xsw2nt\\cmTC_b969f.vcxproj" on node 1 (default targets).
         PrepareForBuild:
-          Creating directory "cmTC_a58b4.dir\\Debug\\".
+          Creating directory "cmTC_b969f.dir\\Debug\\".
           Structured output is enabled. The formatting of compiler diagnostics will reflect the error hierarchy. See https://aka.ms/cpp/structured-output for more details.
-          Creating directory "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-442vr8\\Debug\\".
-          Creating directory "cmTC_a58b4.dir\\Debug\\cmTC_a58b4.tlog\\".
+          Creating directory "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-xsw2nt\\Debug\\".
+          Creating directory "cmTC_b969f.dir\\Debug\\cmTC_b969f.tlog\\".
         InitializeBuildStatus:
-          Creating "cmTC_a58b4.dir\\Debug\\cmTC_a58b4.tlog\\unsuccessfulbuild" because "AlwaysCreate" was specified.
-          Touching "cmTC_a58b4.dir\\Debug\\cmTC_a58b4.tlog\\unsuccessfulbuild".
+          Creating "cmTC_b969f.dir\\Debug\\cmTC_b969f.tlog\\unsuccessfulbuild" because "AlwaysCreate" was specified.
+          Touching "cmTC_b969f.dir\\Debug\\cmTC_b969f.tlog\\unsuccessfulbuild".
         ClCompile:
-          D:\\Installed\\VisualStudio\\VisualStudioIDE\\VC\\Tools\\MSVC\\14.42.34433\\bin\\HostX64\\x64\\CL.exe /c /Zi /W1 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D "CMAKE_INTDIR=\\"Debug\\"" /EHsc /RTC1 /MDd /GS /fp:precise /Fo"cmTC_a58b4.dir\\Debug\\\\" /Fd"cmTC_a58b4.dir\\Debug\\vc143.pdb" /external:W1 /Gd /TP /errorReport:queue "D:\\CMake\\share\\cmake-4.1\\Modules\\CMakeCXXCompilerABI.cpp"
+          D:\\Installed\\VisualStudio\\VisualStudioIDE\\VC\\Tools\\MSVC\\14.42.34433\\bin\\HostX64\\x64\\CL.exe /c /Zi /W1 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D "CMAKE_INTDIR=\\"Debug\\"" /EHsc /RTC1 /MDd /GS /fp:precise /Fo"cmTC_b969f.dir\\Debug\\\\" /Fd"cmTC_b969f.dir\\Debug\\vc143.pdb" /external:W1 /Gd /TP /errorReport:queue "D:\\CMake\\share\\cmake-4.1\\Modules\\CMakeCXXCompilerABI.cpp"
           Microsoft (R) C/C++ Optimizing Compiler Version 19.42.34438 for x64
           Copyright (C) Microsoft Corporation.  All rights reserved.
-          cl /c /Zi /W1 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D "CMAKE_INTDIR=\\"Debug\\"" /EHsc /RTC1 /MDd /GS /fp:precise /Fo"cmTC_a58b4.dir\\Debug\\\\" /Fd"cmTC_a58b4.dir\\Debug\\vc143.pdb" /external:W1 /Gd /TP /errorReport:queue "D:\\CMake\\share\\cmake-4.1\\Modules\\CMakeCXXCompilerABI.cpp"
+          cl /c /Zi /W1 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D "CMAKE_INTDIR=\\"Debug\\"" /EHsc /RTC1 /MDd /GS /fp:precise /Fo"cmTC_b969f.dir\\Debug\\\\" /Fd"cmTC_b969f.dir\\Debug\\vc143.pdb" /external:W1 /Gd /TP /errorReport:queue "D:\\CMake\\share\\cmake-4.1\\Modules\\CMakeCXXCompilerABI.cpp"
           CMakeCXXCompilerABI.cpp
         Link:
-          D:\\Installed\\VisualStudio\\VisualStudioIDE\\VC\\Tools\\MSVC\\14.42.34433\\bin\\HostX64\\x64\\link.exe /OUT:"E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-442vr8\\Debug\\cmTC_a58b4.exe" /INCREMENTAL /ILK:"cmTC_a58b4.dir\\Debug\\cmTC_a58b4.ilk" /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-442vr8/Debug/cmTC_a58b4.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /IMPLIB:"E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-442vr8/Debug/cmTC_a58b4.lib" /MACHINE:X64  /machine:x64 cmTC_a58b4.dir\\Debug\\CMakeCXXCompilerABI.obj
-          cmTC_a58b4.vcxproj -> E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-442vr8\\Debug\\cmTC_a58b4.exe
+          D:\\Installed\\VisualStudio\\VisualStudioIDE\\VC\\Tools\\MSVC\\14.42.34433\\bin\\HostX64\\x64\\link.exe /OUT:"E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-xsw2nt\\Debug\\cmTC_b969f.exe" /INCREMENTAL /ILK:"cmTC_b969f.dir\\Debug\\cmTC_b969f.ilk" /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-xsw2nt/Debug/cmTC_b969f.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /IMPLIB:"E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-xsw2nt/Debug/cmTC_b969f.lib" /MACHINE:X64  /machine:x64 cmTC_b969f.dir\\Debug\\CMakeCXXCompilerABI.obj
+          cmTC_b969f.vcxproj -> E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-xsw2nt\\Debug\\cmTC_b969f.exe
         FinalizeBuildStatus:
-          Deleting file "cmTC_a58b4.dir\\Debug\\cmTC_a58b4.tlog\\unsuccessfulbuild".
-          Touching "cmTC_a58b4.dir\\Debug\\cmTC_a58b4.tlog\\cmTC_a58b4.lastbuildstate".
-        Done Building Project "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-442vr8\\cmTC_a58b4.vcxproj" (default targets).
+          Deleting file "cmTC_b969f.dir\\Debug\\cmTC_b969f.tlog\\unsuccessfulbuild".
+          Touching "cmTC_b969f.dir\\Debug\\cmTC_b969f.tlog\\cmTC_b969f.lastbuildstate".
+        Done Building Project "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-xsw2nt\\cmTC_b969f.vcxproj" (default targets).
         
         Build succeeded.
             0 Warning(s)
             0 Error(s)
         
-        Time Elapsed 00:00:01.08
+        Time Elapsed 00:00:00.84
         
       exitCode: 0
   -
@@ -1132,7 +1132,7 @@ events:
       The output was:
       0
       MSBuild version 17.12.12+1cce77968 for .NET Framework
-      Build started 11/24/2025 3:52:32 PM.
+      Build started 12/2/2025 11:09:58 PM.
       
       Project "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\4.1.0-rc1\\CompilerIdC\\CompilerIdC.vcxproj" on node 1 (default targets).
       PrepareForBuild:
@@ -1161,7 +1161,7 @@ events:
           0 Warning(s)
           0 Error(s)
       
-      Time Elapsed 00:00:01.23
+      Time Elapsed 00:00:00.67
       
       
       Compilation of the C compiler identification source "CMakeCCompilerId.c" produced "CompilerIdC.exe"
@@ -1414,8 +1414,8 @@ events:
     checks:
       - "Detecting C compiler ABI info"
     directories:
-      source: "E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-ggwt36"
-      binary: "E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-ggwt36"
+      source: "E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-nudza1"
+      binary: "E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-nudza1"
     cmakeVariables:
       CMAKE_C_FLAGS: "/DWIN32 /D_WINDOWS"
       CMAKE_C_FLAGS_DEBUG: "/Zi /Ob0 /Od /RTC1"
@@ -1424,40 +1424,40 @@ events:
       variable: "CMAKE_C_ABI_COMPILED"
       cached: true
       stdout: |
-        Change Dir: 'E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-ggwt36'
+        Change Dir: 'E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-nudza1'
         
-        Run Build Command(s): D:/Installed/VisualStudio/VisualStudioIDE/MSBuild/Current/Bin/amd64/MSBuild.exe cmTC_85b43.vcxproj /p:Configuration=Debug /p:Platform=x64 /p:VisualStudioVersion=17.0 /v:n
+        Run Build Command(s): D:/Installed/VisualStudio/VisualStudioIDE/MSBuild/Current/Bin/amd64/MSBuild.exe cmTC_1db5d.vcxproj /p:Configuration=Debug /p:Platform=x64 /p:VisualStudioVersion=17.0 /v:n
         MSBuild version 17.12.12+1cce77968 for .NET Framework
-        Build started 11/24/2025 3:52:34 PM.
+        Build started 12/2/2025 11:09:59 PM.
         
-        Project "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-ggwt36\\cmTC_85b43.vcxproj" on node 1 (default targets).
+        Project "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-nudza1\\cmTC_1db5d.vcxproj" on node 1 (default targets).
         PrepareForBuild:
-          Creating directory "cmTC_85b43.dir\\Debug\\".
+          Creating directory "cmTC_1db5d.dir\\Debug\\".
           Structured output is enabled. The formatting of compiler diagnostics will reflect the error hierarchy. See https://aka.ms/cpp/structured-output for more details.
-          Creating directory "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-ggwt36\\Debug\\".
-          Creating directory "cmTC_85b43.dir\\Debug\\cmTC_85b43.tlog\\".
+          Creating directory "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-nudza1\\Debug\\".
+          Creating directory "cmTC_1db5d.dir\\Debug\\cmTC_1db5d.tlog\\".
         InitializeBuildStatus:
-          Creating "cmTC_85b43.dir\\Debug\\cmTC_85b43.tlog\\unsuccessfulbuild" because "AlwaysCreate" was specified.
-          Touching "cmTC_85b43.dir\\Debug\\cmTC_85b43.tlog\\unsuccessfulbuild".
+          Creating "cmTC_1db5d.dir\\Debug\\cmTC_1db5d.tlog\\unsuccessfulbuild" because "AlwaysCreate" was specified.
+          Touching "cmTC_1db5d.dir\\Debug\\cmTC_1db5d.tlog\\unsuccessfulbuild".
         ClCompile:
-          D:\\Installed\\VisualStudio\\VisualStudioIDE\\VC\\Tools\\MSVC\\14.42.34433\\bin\\HostX64\\x64\\CL.exe /c /Zi /W1 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D "CMAKE_INTDIR=\\"Debug\\"" /RTC1 /MDd /GS /fp:precise /Fo"cmTC_85b43.dir\\Debug\\\\" /Fd"cmTC_85b43.dir\\Debug\\vc143.pdb" /external:W1 /Gd /TC /errorReport:queue "D:\\CMake\\share\\cmake-4.1\\Modules\\CMakeCCompilerABI.c"
+          D:\\Installed\\VisualStudio\\VisualStudioIDE\\VC\\Tools\\MSVC\\14.42.34433\\bin\\HostX64\\x64\\CL.exe /c /Zi /W1 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D "CMAKE_INTDIR=\\"Debug\\"" /RTC1 /MDd /GS /fp:precise /Fo"cmTC_1db5d.dir\\Debug\\\\" /Fd"cmTC_1db5d.dir\\Debug\\vc143.pdb" /external:W1 /Gd /TC /errorReport:queue "D:\\CMake\\share\\cmake-4.1\\Modules\\CMakeCCompilerABI.c"
           Microsoft (R) C/C++ Optimizing Compiler Version 19.42.34438 for x64
           Copyright (C) Microsoft Corporation.  All rights reserved.
-          cl /c /Zi /W1 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D "CMAKE_INTDIR=\\"Debug\\"" /RTC1 /MDd /GS /fp:precise /Fo"cmTC_85b43.dir\\Debug\\\\" /Fd"cmTC_85b43.dir\\Debug\\vc143.pdb" /external:W1 /Gd /TC /errorReport:queue "D:\\CMake\\share\\cmake-4.1\\Modules\\CMakeCCompilerABI.c"
+          cl /c /Zi /W1 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D "CMAKE_INTDIR=\\"Debug\\"" /RTC1 /MDd /GS /fp:precise /Fo"cmTC_1db5d.dir\\Debug\\\\" /Fd"cmTC_1db5d.dir\\Debug\\vc143.pdb" /external:W1 /Gd /TC /errorReport:queue "D:\\CMake\\share\\cmake-4.1\\Modules\\CMakeCCompilerABI.c"
           CMakeCCompilerABI.c
         Link:
-          D:\\Installed\\VisualStudio\\VisualStudioIDE\\VC\\Tools\\MSVC\\14.42.34433\\bin\\HostX64\\x64\\link.exe /OUT:"E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-ggwt36\\Debug\\cmTC_85b43.exe" /INCREMENTAL /ILK:"cmTC_85b43.dir\\Debug\\cmTC_85b43.ilk" /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-ggwt36/Debug/cmTC_85b43.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /IMPLIB:"E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-ggwt36/Debug/cmTC_85b43.lib" /MACHINE:X64  /machine:x64 cmTC_85b43.dir\\Debug\\CMakeCCompilerABI.obj
-          cmTC_85b43.vcxproj -> E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-ggwt36\\Debug\\cmTC_85b43.exe
+          D:\\Installed\\VisualStudio\\VisualStudioIDE\\VC\\Tools\\MSVC\\14.42.34433\\bin\\HostX64\\x64\\link.exe /OUT:"E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-nudza1\\Debug\\cmTC_1db5d.exe" /INCREMENTAL /ILK:"cmTC_1db5d.dir\\Debug\\cmTC_1db5d.ilk" /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-nudza1/Debug/cmTC_1db5d.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /IMPLIB:"E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-nudza1/Debug/cmTC_1db5d.lib" /MACHINE:X64  /machine:x64 cmTC_1db5d.dir\\Debug\\CMakeCCompilerABI.obj
+          cmTC_1db5d.vcxproj -> E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-nudza1\\Debug\\cmTC_1db5d.exe
         FinalizeBuildStatus:
-          Deleting file "cmTC_85b43.dir\\Debug\\cmTC_85b43.tlog\\unsuccessfulbuild".
-          Touching "cmTC_85b43.dir\\Debug\\cmTC_85b43.tlog\\cmTC_85b43.lastbuildstate".
-        Done Building Project "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-ggwt36\\cmTC_85b43.vcxproj" (default targets).
+          Deleting file "cmTC_1db5d.dir\\Debug\\cmTC_1db5d.tlog\\unsuccessfulbuild".
+          Touching "cmTC_1db5d.dir\\Debug\\cmTC_1db5d.tlog\\cmTC_1db5d.lastbuildstate".
+        Done Building Project "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-nudza1\\cmTC_1db5d.vcxproj" (default targets).
         
         Build succeeded.
             0 Warning(s)
             0 Error(s)
         
-        Time Elapsed 00:00:01.23
+        Time Elapsed 00:00:00.82
         
       exitCode: 0
   -
@@ -1500,8 +1500,8 @@ events:
     checks:
       - "Performing Test COMPILER_HAS_THOSE_TOGGLES"
     directories:
-      source: "E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-ci2p44"
-      binary: "E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-ci2p44"
+      source: "E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-ktd6tj"
+      binary: "E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-ktd6tj"
     cmakeVariables:
       CMAKE_C_FLAGS: "/DWIN32 /D_WINDOWS"
       CMAKE_C_FLAGS_DEBUG: "/Zi /Ob0 /Od /RTC1"
@@ -1511,39 +1511,39 @@ events:
       variable: "COMPILER_HAS_THOSE_TOGGLES"
       cached: true
       stdout: |
-        Change Dir: 'E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-ci2p44'
+        Change Dir: 'E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-ktd6tj'
         
-        Run Build Command(s): D:/Installed/VisualStudio/VisualStudioIDE/MSBuild/Current/Bin/amd64/MSBuild.exe cmTC_4a5e2.vcxproj /p:Configuration=Debug /p:Platform=x64 /p:VisualStudioVersion=17.0 /v:n
+        Run Build Command(s): D:/Installed/VisualStudio/VisualStudioIDE/MSBuild/Current/Bin/amd64/MSBuild.exe cmTC_c042e.vcxproj /p:Configuration=Debug /p:Platform=x64 /p:VisualStudioVersion=17.0 /v:n
         MSBuild version 17.12.12+1cce77968 for .NET Framework
-        Build started 11/24/2025 3:52:35 PM.
+        Build started 12/2/2025 11:10:01 PM.
         
-        Project "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-ci2p44\\cmTC_4a5e2.vcxproj" on node 1 (default targets).
+        Project "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-ktd6tj\\cmTC_c042e.vcxproj" on node 1 (default targets).
         PrepareForBuild:
-          Creating directory "cmTC_4a5e2.dir\\Debug\\".
+          Creating directory "cmTC_c042e.dir\\Debug\\".
           Structured output is enabled. The formatting of compiler diagnostics will reflect the error hierarchy. See https://aka.ms/cpp/structured-output for more details.
-          Creating directory "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-ci2p44\\Debug\\".
-          Creating directory "cmTC_4a5e2.dir\\Debug\\cmTC_4a5e2.tlog\\".
+          Creating directory "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-ktd6tj\\Debug\\".
+          Creating directory "cmTC_c042e.dir\\Debug\\cmTC_c042e.tlog\\".
         InitializeBuildStatus:
-          Creating "cmTC_4a5e2.dir\\Debug\\cmTC_4a5e2.tlog\\unsuccessfulbuild" because "AlwaysCreate" was specified.
-          Touching "cmTC_4a5e2.dir\\Debug\\cmTC_4a5e2.tlog\\unsuccessfulbuild".
+          Creating "cmTC_c042e.dir\\Debug\\cmTC_c042e.tlog\\unsuccessfulbuild" because "AlwaysCreate" was specified.
+          Touching "cmTC_c042e.dir\\Debug\\cmTC_c042e.tlog\\unsuccessfulbuild".
         ClCompile:
-          D:\\Installed\\VisualStudio\\VisualStudioIDE\\VC\\Tools\\MSVC\\14.42.34433\\bin\\HostX64\\x64\\CL.exe /c /Zi /W1 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D COMPILER_HAS_THOSE_TOGGLES /D "CMAKE_INTDIR=\\"Debug\\"" /RTC1 /MDd /GS /fp:precise /Fo"cmTC_4a5e2.dir\\Debug\\\\" /Fd"cmTC_4a5e2.dir\\Debug\\vc143.pdb" /external:W1 /Gd /TC /errorReport:queue  -Werror=pointer-arith "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-ci2p44\\src.c"
+          D:\\Installed\\VisualStudio\\VisualStudioIDE\\VC\\Tools\\MSVC\\14.42.34433\\bin\\HostX64\\x64\\CL.exe /c /Zi /W1 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D COMPILER_HAS_THOSE_TOGGLES /D "CMAKE_INTDIR=\\"Debug\\"" /RTC1 /MDd /GS /fp:precise /Fo"cmTC_c042e.dir\\Debug\\\\" /Fd"cmTC_c042e.dir\\Debug\\vc143.pdb" /external:W1 /Gd /TC /errorReport:queue  -Werror=pointer-arith "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-ktd6tj\\src.c"
           Microsoft (R) C/C++ Optimizing Compiler Version 19.42.34438 for x64
           Copyright (C) Microsoft Corporation.  All rights reserved.
-          cl /c /Zi /W1 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D COMPILER_HAS_THOSE_TOGGLES /D "CMAKE_INTDIR=\\"Debug\\"" /RTC1 /MDd /GS /fp:precise /Fo"cmTC_4a5e2.dir\\Debug\\\\" /Fd"cmTC_4a5e2.dir\\Debug\\vc143.pdb" /external:W1 /Gd /TC /errorReport:queue  -Werror=pointer-arith "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-ci2p44\\src.c"
-        cl : command line  error D8021: invalid numeric argument '/Werror=pointer-arith' [E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-ci2p44\\cmTC_4a5e2.vcxproj]
-        Done Building Project "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-ci2p44\\cmTC_4a5e2.vcxproj" (default targets) -- FAILED.
+          cl /c /Zi /W1 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D COMPILER_HAS_THOSE_TOGGLES /D "CMAKE_INTDIR=\\"Debug\\"" /RTC1 /MDd /GS /fp:precise /Fo"cmTC_c042e.dir\\Debug\\\\" /Fd"cmTC_c042e.dir\\Debug\\vc143.pdb" /external:W1 /Gd /TC /errorReport:queue  -Werror=pointer-arith "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-ktd6tj\\src.c"
+        cl : command line  error D8021: invalid numeric argument '/Werror=pointer-arith' [E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-ktd6tj\\cmTC_c042e.vcxproj]
+        Done Building Project "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-ktd6tj\\cmTC_c042e.vcxproj" (default targets) -- FAILED.
         
         Build FAILED.
         
-        "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-ci2p44\\cmTC_4a5e2.vcxproj" (default target) (1) ->
+        "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-ktd6tj\\cmTC_c042e.vcxproj" (default target) (1) ->
         (ClCompile target) -> 
-          cl : command line  error D8021: invalid numeric argument '/Werror=pointer-arith' [E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-ci2p44\\cmTC_4a5e2.vcxproj]
+          cl : command line  error D8021: invalid numeric argument '/Werror=pointer-arith' [E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-ktd6tj\\cmTC_c042e.vcxproj]
         
             0 Warning(s)
             1 Error(s)
         
-        Time Elapsed 00:00:00.36
+        Time Elapsed 00:00:00.31
         
       exitCode: 1
   -
@@ -1557,8 +1557,8 @@ events:
     checks:
       - "Performing Test CMAKE_HAVE_LIBC_PTHREAD"
     directories:
-      source: "E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-fdudqy"
-      binary: "E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-fdudqy"
+      source: "E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-lmi99n"
+      binary: "E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-lmi99n"
     cmakeVariables:
       CMAKE_C_FLAGS: "/DWIN32 /D_WINDOWS"
       CMAKE_C_FLAGS_DEBUG: "/Zi /Ob0 /Od /RTC1"
@@ -1568,40 +1568,40 @@ events:
       variable: "CMAKE_HAVE_LIBC_PTHREAD"
       cached: true
       stdout: |
-        Change Dir: 'E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-fdudqy'
+        Change Dir: 'E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-lmi99n'
         
-        Run Build Command(s): D:/Installed/VisualStudio/VisualStudioIDE/MSBuild/Current/Bin/amd64/MSBuild.exe cmTC_37f65.vcxproj /p:Configuration=Debug /p:Platform=x64 /p:VisualStudioVersion=17.0 /v:n
+        Run Build Command(s): D:/Installed/VisualStudio/VisualStudioIDE/MSBuild/Current/Bin/amd64/MSBuild.exe cmTC_b67ee.vcxproj /p:Configuration=Debug /p:Platform=x64 /p:VisualStudioVersion=17.0 /v:n
         MSBuild version 17.12.12+1cce77968 for .NET Framework
-        Build started 11/24/2025 3:52:36 PM.
+        Build started 12/2/2025 11:10:01 PM.
         
-        Project "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-fdudqy\\cmTC_37f65.vcxproj" on node 1 (default targets).
+        Project "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-lmi99n\\cmTC_b67ee.vcxproj" on node 1 (default targets).
         PrepareForBuild:
-          Creating directory "cmTC_37f65.dir\\Debug\\".
+          Creating directory "cmTC_b67ee.dir\\Debug\\".
           Structured output is enabled. The formatting of compiler diagnostics will reflect the error hierarchy. See https://aka.ms/cpp/structured-output for more details.
-          Creating directory "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-fdudqy\\Debug\\".
-          Creating directory "cmTC_37f65.dir\\Debug\\cmTC_37f65.tlog\\".
+          Creating directory "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-lmi99n\\Debug\\".
+          Creating directory "cmTC_b67ee.dir\\Debug\\cmTC_b67ee.tlog\\".
         InitializeBuildStatus:
-          Creating "cmTC_37f65.dir\\Debug\\cmTC_37f65.tlog\\unsuccessfulbuild" because "AlwaysCreate" was specified.
-          Touching "cmTC_37f65.dir\\Debug\\cmTC_37f65.tlog\\unsuccessfulbuild".
+          Creating "cmTC_b67ee.dir\\Debug\\cmTC_b67ee.tlog\\unsuccessfulbuild" because "AlwaysCreate" was specified.
+          Touching "cmTC_b67ee.dir\\Debug\\cmTC_b67ee.tlog\\unsuccessfulbuild".
         ClCompile:
-          D:\\Installed\\VisualStudio\\VisualStudioIDE\\VC\\Tools\\MSVC\\14.42.34433\\bin\\HostX64\\x64\\CL.exe /c /Zi /W1 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D CMAKE_HAVE_LIBC_PTHREAD /D "CMAKE_INTDIR=\\"Debug\\"" /RTC1 /MDd /GS /fp:precise /Fo"cmTC_37f65.dir\\Debug\\\\" /Fd"cmTC_37f65.dir\\Debug\\vc143.pdb" /external:W1 /Gd /TC /errorReport:queue "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-fdudqy\\src.c"
+          D:\\Installed\\VisualStudio\\VisualStudioIDE\\VC\\Tools\\MSVC\\14.42.34433\\bin\\HostX64\\x64\\CL.exe /c /Zi /W1 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D CMAKE_HAVE_LIBC_PTHREAD /D "CMAKE_INTDIR=\\"Debug\\"" /RTC1 /MDd /GS /fp:precise /Fo"cmTC_b67ee.dir\\Debug\\\\" /Fd"cmTC_b67ee.dir\\Debug\\vc143.pdb" /external:W1 /Gd /TC /errorReport:queue "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-lmi99n\\src.c"
           Microsoft (R) C/C++ Optimizing Compiler Version 19.42.34438 for x64
           Copyright (C) Microsoft Corporation.  All rights reserved.
-          cl /c /Zi /W1 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D CMAKE_HAVE_LIBC_PTHREAD /D "CMAKE_INTDIR=\\"Debug\\"" /RTC1 /MDd /GS /fp:precise /Fo"cmTC_37f65.dir\\Debug\\\\" /Fd"cmTC_37f65.dir\\Debug\\vc143.pdb" /external:W1 /Gd /TC /errorReport:queue "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-fdudqy\\src.c"
+          cl /c /Zi /W1 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D CMAKE_HAVE_LIBC_PTHREAD /D "CMAKE_INTDIR=\\"Debug\\"" /RTC1 /MDd /GS /fp:precise /Fo"cmTC_b67ee.dir\\Debug\\\\" /Fd"cmTC_b67ee.dir\\Debug\\vc143.pdb" /external:W1 /Gd /TC /errorReport:queue "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-lmi99n\\src.c"
           src.c
-        E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-fdudqy\\src.c(1,10): error C1083: Cannot open include file: 'pthread.h': No such file or directory [E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-fdudqy\\cmTC_37f65.vcxproj]
-        Done Building Project "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-fdudqy\\cmTC_37f65.vcxproj" (default targets) -- FAILED.
+        E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-lmi99n\\src.c(1,10): error C1083: Cannot open include file: 'pthread.h': No such file or directory [E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-lmi99n\\cmTC_b67ee.vcxproj]
+        Done Building Project "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-lmi99n\\cmTC_b67ee.vcxproj" (default targets) -- FAILED.
         
         Build FAILED.
         
-        "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-fdudqy\\cmTC_37f65.vcxproj" (default target) (1) ->
+        "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-lmi99n\\cmTC_b67ee.vcxproj" (default target) (1) ->
         (ClCompile target) -> 
-          E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-fdudqy\\src.c(1,10): error C1083: Cannot open include file: 'pthread.h': No such file or directory [E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-fdudqy\\cmTC_37f65.vcxproj]
+          E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-lmi99n\\src.c(1,10): error C1083: Cannot open include file: 'pthread.h': No such file or directory [E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-lmi99n\\cmTC_b67ee.vcxproj]
         
             0 Warning(s)
             1 Error(s)
         
-        Time Elapsed 00:00:00.39
+        Time Elapsed 00:00:00.34
         
       exitCode: 1
   -
@@ -1614,8 +1614,8 @@ events:
     checks:
       - "Looking for pthread_create in pthreads"
     directories:
-      source: "E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-ressn0"
-      binary: "E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-ressn0"
+      source: "E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-796kzc"
+      binary: "E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-796kzc"
     cmakeVariables:
       CMAKE_C_FLAGS: "/DWIN32 /D_WINDOWS"
       CMAKE_C_FLAGS_DEBUG: "/Zi /Ob0 /Od /RTC1"
@@ -1625,42 +1625,42 @@ events:
       variable: "CMAKE_HAVE_PTHREADS_CREATE"
       cached: true
       stdout: |
-        Change Dir: 'E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-ressn0'
+        Change Dir: 'E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-796kzc'
         
-        Run Build Command(s): D:/Installed/VisualStudio/VisualStudioIDE/MSBuild/Current/Bin/amd64/MSBuild.exe cmTC_092f4.vcxproj /p:Configuration=Debug /p:Platform=x64 /p:VisualStudioVersion=17.0 /v:n
+        Run Build Command(s): D:/Installed/VisualStudio/VisualStudioIDE/MSBuild/Current/Bin/amd64/MSBuild.exe cmTC_8dbb2.vcxproj /p:Configuration=Debug /p:Platform=x64 /p:VisualStudioVersion=17.0 /v:n
         MSBuild version 17.12.12+1cce77968 for .NET Framework
-        Build started 11/24/2025 3:52:37 PM.
+        Build started 12/2/2025 11:10:02 PM.
         
-        Project "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-ressn0\\cmTC_092f4.vcxproj" on node 1 (default targets).
+        Project "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-796kzc\\cmTC_8dbb2.vcxproj" on node 1 (default targets).
         PrepareForBuild:
-          Creating directory "cmTC_092f4.dir\\Debug\\".
+          Creating directory "cmTC_8dbb2.dir\\Debug\\".
           Structured output is enabled. The formatting of compiler diagnostics will reflect the error hierarchy. See https://aka.ms/cpp/structured-output for more details.
-          Creating directory "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-ressn0\\Debug\\".
-          Creating directory "cmTC_092f4.dir\\Debug\\cmTC_092f4.tlog\\".
+          Creating directory "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-796kzc\\Debug\\".
+          Creating directory "cmTC_8dbb2.dir\\Debug\\cmTC_8dbb2.tlog\\".
         InitializeBuildStatus:
-          Creating "cmTC_092f4.dir\\Debug\\cmTC_092f4.tlog\\unsuccessfulbuild" because "AlwaysCreate" was specified.
-          Touching "cmTC_092f4.dir\\Debug\\cmTC_092f4.tlog\\unsuccessfulbuild".
+          Creating "cmTC_8dbb2.dir\\Debug\\cmTC_8dbb2.tlog\\unsuccessfulbuild" because "AlwaysCreate" was specified.
+          Touching "cmTC_8dbb2.dir\\Debug\\cmTC_8dbb2.tlog\\unsuccessfulbuild".
         ClCompile:
-          D:\\Installed\\VisualStudio\\VisualStudioIDE\\VC\\Tools\\MSVC\\14.42.34433\\bin\\HostX64\\x64\\CL.exe /c /Zi /W1 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D CHECK_FUNCTION_EXISTS=pthread_create /D "CMAKE_INTDIR=\\"Debug\\"" /RTC1 /MDd /GS /fp:precise /Fo"cmTC_092f4.dir\\Debug\\\\" /Fd"cmTC_092f4.dir\\Debug\\vc143.pdb" /external:W1 /Gd /TC /errorReport:queue "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-ressn0\\CheckFunctionExists.c"
+          D:\\Installed\\VisualStudio\\VisualStudioIDE\\VC\\Tools\\MSVC\\14.42.34433\\bin\\HostX64\\x64\\CL.exe /c /Zi /W1 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D CHECK_FUNCTION_EXISTS=pthread_create /D "CMAKE_INTDIR=\\"Debug\\"" /RTC1 /MDd /GS /fp:precise /Fo"cmTC_8dbb2.dir\\Debug\\\\" /Fd"cmTC_8dbb2.dir\\Debug\\vc143.pdb" /external:W1 /Gd /TC /errorReport:queue "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-796kzc\\CheckFunctionExists.c"
           Microsoft (R) C/C++ Optimizing Compiler Version 19.42.34438 for x64
           Copyright (C) Microsoft Corporation.  All rights reserved.
-          cl /c /Zi /W1 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D CHECK_FUNCTION_EXISTS=pthread_create /D "CMAKE_INTDIR=\\"Debug\\"" /RTC1 /MDd /GS /fp:precise /Fo"cmTC_092f4.dir\\Debug\\\\" /Fd"cmTC_092f4.dir\\Debug\\vc143.pdb" /external:W1 /Gd /TC /errorReport:queue "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-ressn0\\CheckFunctionExists.c"
+          cl /c /Zi /W1 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D CHECK_FUNCTION_EXISTS=pthread_create /D "CMAKE_INTDIR=\\"Debug\\"" /RTC1 /MDd /GS /fp:precise /Fo"cmTC_8dbb2.dir\\Debug\\\\" /Fd"cmTC_8dbb2.dir\\Debug\\vc143.pdb" /external:W1 /Gd /TC /errorReport:queue "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-796kzc\\CheckFunctionExists.c"
           CheckFunctionExists.c
         Link:
-          D:\\Installed\\VisualStudio\\VisualStudioIDE\\VC\\Tools\\MSVC\\14.42.34433\\bin\\HostX64\\x64\\link.exe /OUT:"E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-ressn0\\Debug\\cmTC_092f4.exe" /INCREMENTAL /ILK:"cmTC_092f4.dir\\Debug\\cmTC_092f4.ilk" /NOLOGO pthreads.lib kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-ressn0/Debug/cmTC_092f4.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /IMPLIB:"E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-ressn0/Debug/cmTC_092f4.lib" /MACHINE:X64  /machine:x64 cmTC_092f4.dir\\Debug\\CheckFunctionExists.obj
-        LINK : fatal error LNK1104: cannot open file 'pthreads.lib' [E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-ressn0\\cmTC_092f4.vcxproj]
-        Done Building Project "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-ressn0\\cmTC_092f4.vcxproj" (default targets) -- FAILED.
+          D:\\Installed\\VisualStudio\\VisualStudioIDE\\VC\\Tools\\MSVC\\14.42.34433\\bin\\HostX64\\x64\\link.exe /OUT:"E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-796kzc\\Debug\\cmTC_8dbb2.exe" /INCREMENTAL /ILK:"cmTC_8dbb2.dir\\Debug\\cmTC_8dbb2.ilk" /NOLOGO pthreads.lib kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-796kzc/Debug/cmTC_8dbb2.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /IMPLIB:"E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-796kzc/Debug/cmTC_8dbb2.lib" /MACHINE:X64  /machine:x64 cmTC_8dbb2.dir\\Debug\\CheckFunctionExists.obj
+        LINK : fatal error LNK1104: cannot open file 'pthreads.lib' [E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-796kzc\\cmTC_8dbb2.vcxproj]
+        Done Building Project "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-796kzc\\cmTC_8dbb2.vcxproj" (default targets) -- FAILED.
         
         Build FAILED.
         
-        "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-ressn0\\cmTC_092f4.vcxproj" (default target) (1) ->
+        "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-796kzc\\cmTC_8dbb2.vcxproj" (default target) (1) ->
         (Link target) -> 
-          LINK : fatal error LNK1104: cannot open file 'pthreads.lib' [E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-ressn0\\cmTC_092f4.vcxproj]
+          LINK : fatal error LNK1104: cannot open file 'pthreads.lib' [E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-796kzc\\cmTC_8dbb2.vcxproj]
         
             0 Warning(s)
             1 Error(s)
         
-        Time Elapsed 00:00:00.64
+        Time Elapsed 00:00:00.52
         
       exitCode: 1
   -
@@ -1673,8 +1673,8 @@ events:
     checks:
       - "Looking for pthread_create in pthread"
     directories:
-      source: "E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-imw9ci"
-      binary: "E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-imw9ci"
+      source: "E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-ylkqns"
+      binary: "E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-ylkqns"
     cmakeVariables:
       CMAKE_C_FLAGS: "/DWIN32 /D_WINDOWS"
       CMAKE_C_FLAGS_DEBUG: "/Zi /Ob0 /Od /RTC1"
@@ -1684,42 +1684,42 @@ events:
       variable: "CMAKE_HAVE_PTHREAD_CREATE"
       cached: true
       stdout: |
-        Change Dir: 'E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-imw9ci'
+        Change Dir: 'E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-ylkqns'
         
-        Run Build Command(s): D:/Installed/VisualStudio/VisualStudioIDE/MSBuild/Current/Bin/amd64/MSBuild.exe cmTC_a5d07.vcxproj /p:Configuration=Debug /p:Platform=x64 /p:VisualStudioVersion=17.0 /v:n
+        Run Build Command(s): D:/Installed/VisualStudio/VisualStudioIDE/MSBuild/Current/Bin/amd64/MSBuild.exe cmTC_69b95.vcxproj /p:Configuration=Debug /p:Platform=x64 /p:VisualStudioVersion=17.0 /v:n
         MSBuild version 17.12.12+1cce77968 for .NET Framework
-        Build started 11/24/2025 3:52:38 PM.
+        Build started 12/2/2025 11:10:03 PM.
         
-        Project "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-imw9ci\\cmTC_a5d07.vcxproj" on node 1 (default targets).
+        Project "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-ylkqns\\cmTC_69b95.vcxproj" on node 1 (default targets).
         PrepareForBuild:
-          Creating directory "cmTC_a5d07.dir\\Debug\\".
+          Creating directory "cmTC_69b95.dir\\Debug\\".
           Structured output is enabled. The formatting of compiler diagnostics will reflect the error hierarchy. See https://aka.ms/cpp/structured-output for more details.
-          Creating directory "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-imw9ci\\Debug\\".
-          Creating directory "cmTC_a5d07.dir\\Debug\\cmTC_a5d07.tlog\\".
+          Creating directory "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-ylkqns\\Debug\\".
+          Creating directory "cmTC_69b95.dir\\Debug\\cmTC_69b95.tlog\\".
         InitializeBuildStatus:
-          Creating "cmTC_a5d07.dir\\Debug\\cmTC_a5d07.tlog\\unsuccessfulbuild" because "AlwaysCreate" was specified.
-          Touching "cmTC_a5d07.dir\\Debug\\cmTC_a5d07.tlog\\unsuccessfulbuild".
+          Creating "cmTC_69b95.dir\\Debug\\cmTC_69b95.tlog\\unsuccessfulbuild" because "AlwaysCreate" was specified.
+          Touching "cmTC_69b95.dir\\Debug\\cmTC_69b95.tlog\\unsuccessfulbuild".
         ClCompile:
-          D:\\Installed\\VisualStudio\\VisualStudioIDE\\VC\\Tools\\MSVC\\14.42.34433\\bin\\HostX64\\x64\\CL.exe /c /Zi /W1 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D CHECK_FUNCTION_EXISTS=pthread_create /D "CMAKE_INTDIR=\\"Debug\\"" /RTC1 /MDd /GS /fp:precise /Fo"cmTC_a5d07.dir\\Debug\\\\" /Fd"cmTC_a5d07.dir\\Debug\\vc143.pdb" /external:W1 /Gd /TC /errorReport:queue "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-imw9ci\\CheckFunctionExists.c"
+          D:\\Installed\\VisualStudio\\VisualStudioIDE\\VC\\Tools\\MSVC\\14.42.34433\\bin\\HostX64\\x64\\CL.exe /c /Zi /W1 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D CHECK_FUNCTION_EXISTS=pthread_create /D "CMAKE_INTDIR=\\"Debug\\"" /RTC1 /MDd /GS /fp:precise /Fo"cmTC_69b95.dir\\Debug\\\\" /Fd"cmTC_69b95.dir\\Debug\\vc143.pdb" /external:W1 /Gd /TC /errorReport:queue "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-ylkqns\\CheckFunctionExists.c"
           Microsoft (R) C/C++ Optimizing Compiler Version 19.42.34438 for x64
           Copyright (C) Microsoft Corporation.  All rights reserved.
-          cl /c /Zi /W1 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D CHECK_FUNCTION_EXISTS=pthread_create /D "CMAKE_INTDIR=\\"Debug\\"" /RTC1 /MDd /GS /fp:precise /Fo"cmTC_a5d07.dir\\Debug\\\\" /Fd"cmTC_a5d07.dir\\Debug\\vc143.pdb" /external:W1 /Gd /TC /errorReport:queue "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-imw9ci\\CheckFunctionExists.c"
+          cl /c /Zi /W1 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D CHECK_FUNCTION_EXISTS=pthread_create /D "CMAKE_INTDIR=\\"Debug\\"" /RTC1 /MDd /GS /fp:precise /Fo"cmTC_69b95.dir\\Debug\\\\" /Fd"cmTC_69b95.dir\\Debug\\vc143.pdb" /external:W1 /Gd /TC /errorReport:queue "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-ylkqns\\CheckFunctionExists.c"
           CheckFunctionExists.c
         Link:
-          D:\\Installed\\VisualStudio\\VisualStudioIDE\\VC\\Tools\\MSVC\\14.42.34433\\bin\\HostX64\\x64\\link.exe /OUT:"E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-imw9ci\\Debug\\cmTC_a5d07.exe" /INCREMENTAL /ILK:"cmTC_a5d07.dir\\Debug\\cmTC_a5d07.ilk" /NOLOGO pthread.lib kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-imw9ci/Debug/cmTC_a5d07.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /IMPLIB:"E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-imw9ci/Debug/cmTC_a5d07.lib" /MACHINE:X64  /machine:x64 cmTC_a5d07.dir\\Debug\\CheckFunctionExists.obj
-        LINK : fatal error LNK1104: cannot open file 'pthread.lib' [E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-imw9ci\\cmTC_a5d07.vcxproj]
-        Done Building Project "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-imw9ci\\cmTC_a5d07.vcxproj" (default targets) -- FAILED.
+          D:\\Installed\\VisualStudio\\VisualStudioIDE\\VC\\Tools\\MSVC\\14.42.34433\\bin\\HostX64\\x64\\link.exe /OUT:"E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-ylkqns\\Debug\\cmTC_69b95.exe" /INCREMENTAL /ILK:"cmTC_69b95.dir\\Debug\\cmTC_69b95.ilk" /NOLOGO pthread.lib kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-ylkqns/Debug/cmTC_69b95.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /IMPLIB:"E:/Resume/Velox/build_viz/CMakeFiles/CMakeScratch/TryCompile-ylkqns/Debug/cmTC_69b95.lib" /MACHINE:X64  /machine:x64 cmTC_69b95.dir\\Debug\\CheckFunctionExists.obj
+        LINK : fatal error LNK1104: cannot open file 'pthread.lib' [E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-ylkqns\\cmTC_69b95.vcxproj]
+        Done Building Project "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-ylkqns\\cmTC_69b95.vcxproj" (default targets) -- FAILED.
         
         Build FAILED.
         
-        "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-imw9ci\\cmTC_a5d07.vcxproj" (default target) (1) ->
+        "E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-ylkqns\\cmTC_69b95.vcxproj" (default target) (1) ->
         (Link target) -> 
-          LINK : fatal error LNK1104: cannot open file 'pthread.lib' [E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-imw9ci\\cmTC_a5d07.vcxproj]
+          LINK : fatal error LNK1104: cannot open file 'pthread.lib' [E:\\Resume\\Velox\\build_viz\\CMakeFiles\\CMakeScratch\\TryCompile-ylkqns\\cmTC_69b95.vcxproj]
         
             0 Warning(s)
             1 Error(s)
         
-        Time Elapsed 00:00:00.81
+        Time Elapsed 00:00:00.53
         
       exitCode: 1
 ...

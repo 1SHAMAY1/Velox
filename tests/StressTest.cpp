@@ -1,7 +1,7 @@
 #include <iostream>
 #include <vector>
 #include <chrono>
-#include <velox/PhysicsEngineAPI.h>
+#include <velox/VeloxAPI.h>
 
 int main() {
     std::cout << "Initializing Velox World..." << std::endl;
