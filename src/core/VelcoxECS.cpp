@@ -1,4 +1,4 @@
-#include "ECS.h"
+#include "VelcoxECS.h"
 
 namespace Velox {
     // Most implementation is in the header due to templates.

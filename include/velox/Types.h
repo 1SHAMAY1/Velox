@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <limits>
+#include <cmath>
 
 #ifdef WIN32
     #ifdef VELOX_EXPORTS

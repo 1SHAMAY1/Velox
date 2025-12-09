@@ -1,30 +1,10 @@
-
-
-# IDE files
-.vs/
+build/
+build_viz/
 .vscode/
-*.suo
 *.user
-*.sln.docstates
-
-# Compiled Object files
-*.o
-*.obj
 *.exe
-*.dll
-*.so
-*.dylib
-
-# Debug files
 *.pdb
 *.ilk
-
-# CMake
-CMakeCache.txt
-CMakeFiles/
-cmake_install.cmake
-install_manifest.txt
-
-# OS files
-.DS_Store
-Thumbs.db
+*.obj
+*.lib
+*.dll
