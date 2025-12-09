@@ -5,7 +5,7 @@
 **Velox** is a lightweight, high-performance, and modular 2D physics engine written in C++. Designed for stability and speed, it utilizes a **Data-Oriented Design (ECS)** architecture and an **Extended Position Based Dynamics (XPBD)** solver to handle thousands of objects with ease.
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)
+![Platform](https://img.shields.io/badge/platform-Windows-lightgrey.svg)
 ![Standard](https://img.shields.io/badge/C%2B%2B-17-blue.svg)
 
 ---
