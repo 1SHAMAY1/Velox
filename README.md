@@ -1,158 +1,154 @@
 # ⚡ Velox Physics Engine
 
-**Velox** is a lightweight, high-performance 2D physics engine built from scratch in C++. It leverages modern **Data-Oriented Design (ECS)** and an **Extended Position Based Dynamics (XPBD)** solver to deliver stable, scalable, and cache-friendly physics simulations.
+![Velox Logo](assets/velox_icon_window.png)
+
+**Velox** is a lightweight, high-performance, and modular 2D physics engine written in C++. Designed for stability and speed, it utilizes a **Data-Oriented Design (ECS)** architecture and an **Extended Position Based Dynamics (XPBD)** solver to handle thousands of objects with ease.
+
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)
+![Standard](https://img.shields.io/badge/C%2B%2B-17-blue.svg)
 
 ---
 
 ## 🚀 Key Features
 
-*   ** ECS Architecture**: Custom interactions between *Entity-Component-System* ensure maximum cache locality and performance for thousands of objects.
-*   ** XPBD Constraint Solver**: Superior stability for rigid body collisions and joints compared to traditional impulse-based solvers.
-*   ** Broadphase Optimization**: Spatial Hashing Grid (60x60 cells) reduces collision checks from O(N²) to O(N) average case.
-*   ** Modular Behaviors**: Plug-and-play components for Force Fields, Oscillators, and constant Rotations.
-*   ** C-API Export**: Clean, C-style API (`VeloxAPI.h`) for easy integration into other C/C++ applications or game engines.
-*   ** Visualizer**: Includes a Raylib-powered visualizer for real-time testing and debugging.
+*   **⚡ High Performance**: Custom ECS architecture optimized for CPU cache locality (Arrays over Pointers).
+*   **📐 Stable Solver**: XPBD (Extended Position Based Dynamics) solver ensures stability for stacking, high-speed collisions, and stiff constraints.
+*   **🧊 2D Optimized**: Specialized for 2D XY-plane simulations with reduced overhead.
+*   **🌍 Modular Logic**: Behavior-based components (Force Fields, Oscillators, Projectiles) decouple logic from the core solver.
+*   **🏗️ Broadphase Optimization**: Spatial Hashing Grid (60x60 cells) reduces collision complexity from $O(N^2)$ to $O(N)$ for typical scenes.
+*   **🔌 C-API**: Simple, portable C-style API (`VeloxAPI.h`) for zero-friction integration into other languages and engines.
+*   **🎮 Visualizer**: Included Raylib-powered visualizer for real-time demos and stress testing.
 
 ---
 
-## 🏛️ Architecture Overview
+## 🏛️ Architecture
 
-Velox separates **Data** from **Logic**:
-1.  **EntityManager** (`VelcoxECS`): Stores all Component data in contiguous arrays.
-2.  **PhysicsSystem**: The logic core. It doesn't own data; it iterates over Component arrays.
+Velox separates **Data** (Components) from **Logic** (Systems).
 
-### The Physics Step
-The `Velox_Step(dt)` function executes the simulation loop:
-1.  **Apply External Forces**: Gravity, Force Fields, and Damping.
-2.  **Sub-Stepping Loop** (8 iterations):
-    *   **Integrate**: Predict new positions based on velocity.
-    *   **Broadphase**: Spatial Grid inserts all colliders.
-    *   **Narrowphase & Solve**: Detect overlaps and resolve constraints (XPBD) to correct positions.
-    *   **Velocity Update**: Update velocities based on position corrections.
+1.  **EntityManager (`VelcoxECS`)**: detailed contiguous storage for all component data.
+2.  **PhysicsSystem**: Stateless logic core that iterates over component arrays to apply rules and solve constraints.
+
+### The Physics Pipeline
+1.  **Integration**: Predict tentative positions ($x' = x + v \Delta t$).
+2.  **Broadphase**: Spatial Grid inserts all colliders to find potential pairs.
+3.  **Narrowphase**: Detailed collision checks (Circle-Circle, Circle-Box, etc.).
+4.  **Solver (XPBD)**: Iteratively correct positions to satisfy constraints (Non-penetration, Distance).
+5.  **Velocity Update**: Update velocities based on position corrections ($v = (x_{new} - x_{old}) / \Delta t$).
 
 ---
 
 ## 📦 Components Reference
 
-### 🧱 Core Physics
-These components define the physical existence of an object.
+Components are Pure Old Data (POD) structs. They define *what* an entity is.
 
-| Component | Description | Key Properties |
+### Core Physics
+| Component | Properties | Description |
 | :--- | :--- | :--- |
-| **Transform** | The object's location in the world. | `Position (x,y)`, `Rotation (radians)` |
-| **RigidBody** | Defines mass and dynamics. | `Mass` (0 = Static), `IsStatic` (bool) |
-| **Movement** | Internal simulation state (Velocity/Forces). | `Velocity`, `AngularVelocity`, `Damping` |
-| **Collider** | The physical shape for collisions. | `Type` (Box/Circle), `Radius`, `Dimensions` |
-| **PhysicalMaterial** | Surface interaction properties. | `StaticFriction` (Start moving), `DynamicFriction` (Keep moving), `Restitution` (Bounciness 0.0-1.0) |
+| **Transform** | `Position (Vec2)`, `Rotation (rad)`, `Scale (Vec2)` | Defines world space location and orientation. |
+| **RigidBody** | `Mass`, `InverseMass`, `Inertia`, `IsStatic` | Defines dynamic properties. 0 Mass = Static. |
+| **Movement** | `Velocity`, `AngularVelocity`, `Damping` | Stores implicit solver state for motion. |
+| **Collider** | `Type` (Box/Circle), `Radius`, `BoxHalfExtents` | Defines the physical shape used for collision detection. |
+| **PhysicalMaterial** | `StaticFriction`, `DynamicFriction`, `Restitution` | Surface properties. High restitution = Bouncy. |
 
-### ⚙️ Behaviors
-Specialized components to add unique behaviors without writing custom simulation code.
-
-| Component | Description | Usage |
+### Modular Behaviors
+| Component | Properties | Description |
 | :--- | :--- | :--- |
-| **ForceField** | Creates a radial zone that pushes/pulls. | **Gravity Wells** (Inward), **Explosions** (Outward), **Vortexes** (Rotation). |
-| **Oscillation** | Moves an object back and forth (Sine wave). | Platforms, elevators, or decorative floating items. |
-| **Rotation** | Constant motor rotation. | Wheels, fans, or spinning hazards. |
-| **Projectile** | Rotation always faces Velocity vector. | Arrows, missiles, or rockets. |
+| **ForceField** | `Type`, `Strength`, `Radius` | Applies radial forces. Types: `Inward`, `Outward`, `Clockwise` (Vortex). |
+| **Oscillation** | `Axis`, `Amplitude`, `Frequency`, `CenterPos` | Moves entity in a Sine wave pattern. Good for elevators/platforms. |
+| **Rotation** | `Speed`, `Direction` | Applies constant angular velocity. Good for motors/fans. |
+| **Projectile** | `FaceVelocity`, `Speed`, `MaxSpeed`, `Bounce` | Align rotation to velocity vector. Good for arrows/missiles. |
 
 ---
 
-## � Quick Start Guide
+## 📚 API Integration
 
-Here is a minimal example of how to initialize Velox and simulate a falling ball.
+Velox exposes a clean C-API to manage the world and entities.
 
+### 1. Initialization
 ```cpp
 #include <velox/VeloxAPI.h>
 
-int main() {
-    // 1. Create the World
-    VeloxWorld* world = Velox_CreateWorld();
+VeloxWorld* world = Velox_CreateWorld();
+```
 
-    // 2. Create an Entity (The Ball)
-    int ballID = Velox_CreateEntity(world);
+### 2. Creating an Object (Entity)
+```cpp
+// Create a new ID
+int id = Velox_CreateEntity(world);
 
-    // 3. Add Components
-    Velox_AddTransform(world, ballID, 0.0f, 100.0f, 0.0f);   // Start at Y=100
-    Velox_AddRigidBody(world, ballID, 1.0f, false);          // Mass=1kg, Dynamic
-    Velox_AddMovement(world, ballID);                        // Enable movement
-    Velox_AddCircleCollider(world, ballID, 10.0f);           // Radius=10
-    Velox_AddPhysicalMaterial(world, ballID, 0.5f, 0.3f, 0.8f); // High Bounciness (0.8)
+// Add Components to define behavior
+Velox_AddTransform(world, id, 100.0f, 200.0f, 0.0f);      // x, y, rotation
+Velox_AddRigidBody(world, id, 1.0f, false);               // Mass=1.0, Static=false
+Velox_AddCircleCollider(world, id, 15.0f);                // Radius=15
+Velox_AddMovement(world, id);                             // Enable physics movement
+Velox_AddPhysicalMaterial(world, id, 0.5f, 0.3f, 0.8f);   // Friction, Restitution
+```
 
-    // 4. Simulation Loop
-    float dt = 1.0f / 60.0f;
-    for (int i = 0; i < 600; ++i) {
-        Velox_Step(world, dt);
-        
-        float x, y, rot;
-        Velox_GetPosition(world, ballID, &x, &y, &rot);
-        // Print/Draw position...
-    }
-
-    // 5. Cleanup
-    Velox_DestroyWorld(world);
-    return 0;
+### 3. Simulation Loop
+```cpp
+const float dt = 1.0f / 60.0f;
+while (appRunning) {
+    Velox_Step(world, dt);
+    
+    // Get Data for Rendering
+    float x, y, rot;
+    Velox_GetPosition(world, id, &x, &y, &rot);
+    renderCircle(x, y, rot);
 }
 ```
 
----
-
-## 🎮 Included Demos
-
-The project comes with a **Visualizer** that showcases the engine's capabilities.
-
-### 1. Bouncing Balls (Stress Test)
-*   **Scenario**: Hundreds of balls spawn and collide within a box.
-*   **Showcases**: Broadphase efficiency, collision resolution stability, and restitution.
-*   **Interactions**: Use arrow keys to rotate the entire container!
-
-### 2. Force Fields
-*   **Scenario**: Particles interacting with invisible zones.
-*   **Types**:
-    *   🟦 **Inward**: Simulates gravity wells / black holes.
-    *   🟥 **Outward**: Simulates repulsor shields.
-    *   🟩 **Vortex**: Swirls objects clockwise or anti-clockwise.
-
-### 3. Oscillators
-*   **Scenario**: Platforms moving in perfect sine-waves (Horizontal, Vertical, Diagonal).
-*   **Mechanic**: Uses `OscillationComponent` to directly manipulate position without affecting physics velocity, allowing bodies to "ride" them.
-
-### 4. Projectiles
-*   **Scenario**: Launching arrows with the mouse.
-*   **Mechanic**: The `ProjectileComponent` ensures the arrows tip always points forward, even as gravity arcs their path.
-
-### 🎮 Visualizer Controls
-The visualizer provides a real-time view of the simulation.
-*   **Scene Selection**: Use the dropdown menu to switch between demos.
-*   **Space**: Pause/Resume simulation.
-*   **Mouse**: Interact (Spawn balls, shoot projectiles) depending on the scene.
-*   **Arrow Keys**: Rotate the container in the "Bouncing Balls" demo.
+### 4. Cleanup
+```cpp
+Velox_DestroyWorld(world);
+```
 
 ---
 
-## 🛠️ Building the Project
+## 🎮 Visualizer & Demos
+
+The included **Visualizer** (built with Raylib) demonstrates the engine's capabilities.
+
+### Controls
+*   **Scene Selection**: Dropdown menu to switch demos.
+*   **Space**: Pause/Resume.
+*   **Mouse**: Context-sensitive interaction (Spawn balls, Shoot arrows).
+*   **Arrow Keys**: Rotate the container (Bouncing Balls scene).
+
+### Scenes
+1.  **Bouncing Balls**: Stress test spatial hash grid with hundreds of colliding bodies.
+2.  **Force Fields**: Interaction with invisible physics zones (Gravity Wells, Repulsors, Vortexes).
+3.  **Oscillation**: Platforms moving in perfect sine-waves, affecting physical bodies on top.
+4.  **Projectiles**: Simulation of aerodynamic object alignment (Arrows).
+
+---
+
+## 🛠️ Building
 
 ### Prerequisites
-*   **CMake**: 3.10 or higher.
-*   **Compiler**: MSVC (Windows), GCC/Clang (Linux/macOS) supporting C++17.
+*   **CMake**: 3.10+
+*   **Compiler**: C++17 compliant (MSVC, GCC, Clang)
 
-### Build Instructions
+### Steps
 ```bash
-# 1. Clone the repository
+# 1. Clone
 git clone https://github.com/1SHAMAY1/Velox.git
-cd velox
+cd Velox
 
-# 2. Create build directory
-mkdir build
-cd build
-
-# 3. Configure and Build
+# 2. Configure
+mkdir build && cd build
 cmake ..
+
+# 3. Build (Release recommended for performance)
 cmake --build . --config Release
 ```
 
-### Running the Visualizer
-After building, the visualizer executable will be in `bin/Release`.
+### Running (Windows)
 ```bash
-# Windows
 .\bin\Release\VeloxVisualizer.exe
 ```
+
+---
+
+## 📄 License
+This project is licensed under the **MIT License** - see the `LICENSE` file for details.
