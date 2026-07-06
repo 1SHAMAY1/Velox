@@ -1,3 +1,10 @@
+/**
+ * @file VeloxAPI.cpp
+ * @brief Implementation of the flat C ABI declared in VeloxAPI.h.
+ *
+ * Each function forwards to the corresponding World / EntityManager call.
+ * See VeloxAPI.h for per-function documentation.
+ */
 #include <velox/VeloxAPI.h>
 #include "../core/World.h"
 #include "../physics/Components.h"
@@ -148,7 +155,19 @@ extern "C" {
         col.Type = Velox::ColliderType::Circle;
         col.Data.Radius = radius;
         col.CenterOffset = { 0, 0 };
-        reinterpret_cast<World*>(world)->GetEntityManager().AddComponent(entityID, col);
+        col.IsSensor = false;
+        
+        auto& em = reinterpret_cast<World*>(world)->GetEntityManager();
+        em.AddComponent(entityID, col);
+
+        // Compute proper inertia for a circle: 0.5 * m * r^2
+        if (em.HasComponent<RigidBodyComponent>(entityID)) {
+            auto& rb = em.GetComponent<RigidBodyComponent>(entityID);
+            if (!rb.IsStatic && rb.Mass > 0.0f) {
+                rb.Inertia = 0.5f * rb.Mass * radius * radius;
+                rb.InverseInertia = 1.0f / rb.Inertia;
+            }
+        }
     }
 
     void Velox_AddBoxCollider(VeloxWorld* world, Velox::EntityID entityID, float width, float height) {
@@ -156,7 +175,149 @@ extern "C" {
         col.Type = Velox::ColliderType::Box;
         col.Data.BoxHalfExtents = { width * 0.5f, height * 0.5f };
         col.CenterOffset = { 0, 0 };
-        reinterpret_cast<World*>(world)->GetEntityManager().AddComponent(entityID, col);
+        col.IsSensor = false;
+        
+        auto& em = reinterpret_cast<World*>(world)->GetEntityManager();
+        em.AddComponent(entityID, col);
+
+        // Compute proper inertia for a box: (1/12) * m * (w^2 + h^2)
+        if (em.HasComponent<RigidBodyComponent>(entityID)) {
+            auto& rb = em.GetComponent<RigidBodyComponent>(entityID);
+            if (!rb.IsStatic && rb.Mass > 0.0f) {
+                rb.Inertia = (1.0f / 12.0f) * rb.Mass * (width * width + height * height);
+                rb.InverseInertia = 1.0f / rb.Inertia;
+            }
+        }
+    }
+
+    void Velox_SetGravity(VeloxWorld* world, float gx, float gy) {
+        if (!world) return;
+        reinterpret_cast<World*>(world)->SetGravity(gx, gy);
+    }
+
+    void Velox_AddDistanceJoint(VeloxWorld* world, Velox::EntityID entityA, Velox::EntityID entityB, float anchorAX, float anchorAY, float anchorBX, float anchorBY, float targetDistance, float compliance) {
+        if (!world) return;
+        auto id = reinterpret_cast<World*>(world)->GetEntityManager().CreateEntity();
+        
+        Velox::JointComponent jc;
+        jc.EntityA = entityA;
+        jc.EntityB = entityB;
+        jc.LocalAnchorA = {anchorAX, anchorAY};
+        jc.LocalAnchorB = {anchorBX, anchorBY};
+        jc.TargetDistance = targetDistance;
+        jc.Compliance = compliance;
+        jc.Damping = 0.0f;
+        jc.IsActive = true;
+        
+        reinterpret_cast<World*>(world)->GetEntityManager().AddComponent(id, jc);
+    }
+
+    void Velox_SetColliderSensor(VeloxWorld* world, Velox::EntityID entity, bool isSensor) {
+        if (!world) return;
+        auto& em = reinterpret_cast<World*>(world)->GetEntityManager();
+        if (em.HasComponent<ColliderComponent>(entity)) {
+            em.GetComponent<ColliderComponent>(entity).IsSensor = isSensor;
+        }
+    }
+
+    void Velox_AddPolygonCollider(VeloxWorld* world, Velox::EntityID entityID, float* verticesX, float* verticesY, int vertexCount) {
+        if (!world) return;
+        Velox::ColliderComponent col;
+        col.Type = Velox::ColliderType::Polygon;
+        col.CenterOffset = { 0, 0 };
+        col.IsSensor = false;
+        
+        for (int i = 0; i < vertexCount; ++i) {
+            col.Vertices.push_back({verticesX[i], verticesY[i]});
+        }
+        
+        // Approximate Radius & Box Half Extents for spatial hashing broadphase
+        float maxR = 0.0f;
+        for (const auto& v : col.Vertices) {
+            float dist = v.Magnitude();
+            if (dist > maxR) maxR = dist;
+        }
+        col.Data.Radius = maxR;
+        col.Data.BoxHalfExtents = { maxR, maxR };
+        
+        auto& em = reinterpret_cast<World*>(world)->GetEntityManager();
+        em.AddComponent(entityID, col);
+
+        // Compute proper inertia for a polygon: Approximate using solid circle or sum
+        if (em.HasComponent<RigidBodyComponent>(entityID)) {
+            auto& rb = em.GetComponent<RigidBodyComponent>(entityID);
+            if (!rb.IsStatic && rb.Mass > 0.0f) {
+                rb.Inertia = 0.5f * rb.Mass * maxR * maxR;
+                rb.InverseInertia = 1.0f / rb.Inertia;
+            }
+        }
+    }
+
+    void Velox_AddChainCollider(VeloxWorld* world, Velox::EntityID entityID, float* pointsX, float* pointsY, int pointCount) {
+        if (!world) return;
+        Velox::ColliderComponent col;
+        col.Type = Velox::ColliderType::Chain;
+        col.CenterOffset = { 0, 0 };
+        col.IsSensor = false;
+        
+        for (int i = 0; i < pointCount; ++i) {
+            col.Vertices.push_back({pointsX[i], pointsY[i]});
+        }
+        
+        // Dynamic bounding box for spatial hashing
+        float minX = 1e9f, maxX = -1e9f, minY = 1e9f, maxY = -1e9f;
+        for (const auto& v : col.Vertices) {
+            if (v.x < minX) minX = v.x;
+            if (v.x > maxX) maxX = v.x;
+            if (v.y < minY) minY = v.y;
+            if (v.y > maxY) maxY = v.y;
+        }
+        col.Data.BoxHalfExtents = { (maxX - minX)*0.5f, (maxY - minY)*0.5f };
+        col.CenterOffset = { (minX + maxX)*0.5f, (minY + maxY)*0.5f };
+        col.Data.Radius = col.Data.BoxHalfExtents.Magnitude();
+
+        auto& em = reinterpret_cast<World*>(world)->GetEntityManager();
+        em.AddComponent(entityID, col);
+    }
+
+    void Velox_SetJointMotor(VeloxWorld* world, Velox::EntityID jointEntity, bool enableMotor, float targetSpeed, float maxTorque) {
+        if (!world) return;
+        auto& em = reinterpret_cast<World*>(world)->GetEntityManager();
+        if (em.HasComponent<JointComponent>(jointEntity)) {
+            auto& jc = em.GetComponent<JointComponent>(jointEntity);
+            jc.EnableMotor = enableMotor;
+            jc.MotorSpeed = targetSpeed;
+            jc.MaxMotorTorque = maxTorque;
+        }
+    }
+
+    bool Velox_Raycast(VeloxWorld* world, float startX, float startY, float dirX, float dirY, float maxDistance, float* hitX, float* hitY, float* normalX, float* normalY, float* fraction, Velox::EntityID* hitEntity) {
+        if (!world) return false;
+        auto& phys = reinterpret_cast<World*>(world)->GetPhysicsSystem();
+        Velox::Vec2 start = {startX, startY};
+        Velox::Vec2 dir = {dirX, dirY};
+        
+        // Normalize raycast direction
+        float len = dir.Magnitude();
+        if (len > 0.0001f) {
+            dir = dir / len;
+        }
+        
+        Velox::Vec2 hitPt, hitNorm;
+        Velox::Real frac = 0.0f;
+        Velox::EntityID id = 0;
+        
+        bool hit = phys.Raycast(start, dir, maxDistance, hitPt, hitNorm, frac, id);
+        if (hit) {
+            if (hitX) *hitX = hitPt.x;
+            if (hitY) *hitY = hitPt.y;
+            if (normalX) *normalX = hitNorm.x;
+            if (normalY) *normalY = hitNorm.y;
+            if (fraction) *fraction = frac;
+            if (hitEntity) *hitEntity = id;
+            return true;
+        }
+        return false;
     }
 
 }
