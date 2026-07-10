@@ -45,7 +45,13 @@ enum class SceneType {
     JointDemo,
     SandboxDemo,
     ChainDemo,
-    RaycastDemo
+    RaycastDemo,
+    RevolutePrismaticDemo,
+    CCDShowcase,
+    SleepingShowcase,
+    SoftBodySandbox,
+    SoftBodyFunnel,
+    SoftBodyStacking
 };
 
 SceneType currentScene = SceneType::BouncingBalls;
@@ -63,8 +69,37 @@ const char* sceneNames[] = {
     "Distance Joint Demo",
     "Convex Polygons & Motors Sandbox",
     "Chain Shapes Showcase",
-    "Raycast Queries Showcase"
+    "Raycast Queries Showcase",
+    "Revolute & Prismatic & Gear & Pulley Showcase",
+    "CCD vs Tunneling Showcase",
+    "Sleeping & Activation Showcase",
+    "Soft Body Sandbox Demos",
+    "Soft Body Funnel & Squeeze Showcase",
+    "Soft Body Stacking & Loads Showcase"
 };
+
+void AddScreenBoundaries(VeloxWorld* world, std::vector<VisualEntity>& entities, int screenWidth, int screenHeight) {
+    float wallThickness = 40.0f;
+    struct WallDef { float x, y, w, h; };
+    WallDef walls[] = {
+        {screenWidth/2.0f, wallThickness/2.0f, (float)screenWidth, wallThickness}, // Top
+        {screenWidth/2.0f, screenHeight - wallThickness/2.0f, (float)screenWidth, wallThickness}, // Bottom
+        {wallThickness/2.0f, screenHeight/2.0f, wallThickness, (float)screenHeight - 2*wallThickness}, // Left
+        {screenWidth - wallThickness/2.0f, screenHeight/2.0f, wallThickness, (float)screenHeight - 2*wallThickness} // Right
+    };
+
+    for (const auto& w : walls) {
+        auto id = Velox_CreateEntity(world);
+        Velox_AddTransform(world, id, w.x, w.y, 0.0f);
+        Velox_AddRigidBody(world, id, 0.0f, true); // Static
+        Velox_AddMovement(world, id);
+        Velox_AddBoxCollider(world, id, w.w, w.h);
+        
+        VisualEntity ve;
+        ve.id = id; ve.color = GRAY; ve.type = 1; ve.width = w.w; ve.height = w.h;
+        entities.push_back(ve);
+    }
+}
 
 void SetupBouncingBalls(VeloxWorld* world, std::vector<VisualEntity>& entities, int screenWidth, int screenHeight) {
     float wallThickness = 20.0f;
@@ -106,7 +141,7 @@ void SetupBouncingBalls(VeloxWorld* world, std::vector<VisualEntity>& entities, 
         // High restitution so bouncing is visible
         Velox_AddPhysicalMaterial(world, id, 0.1f, 0.05f, 0.85f);
         float vx = (i == 0) ? 300.0f : -300.0f;
-        Velox_SetVelocity(world, id, vx, 200.0f);
+        Velox_SetVelocity(world, id, vx, 1000.0f);
         Velox_SetDamping(world, id, 0.0f, 0.0f);
         Velox_AddRotation(world, id, 5.0f, 0, 0);
 
@@ -142,6 +177,7 @@ int maxBalls = 150;
 float gameTime = 0.0f; // Track elapsed time
 
 void SetupForceFieldDemo(VeloxWorld* world, std::vector<VisualEntity>& entities, int screenWidth, int screenHeight) {
+    AddScreenBoundaries(world, entities, screenWidth, screenHeight);
     float centerX = screenWidth / 2.0f;
     float centerY = screenHeight / 2.0f;
     float offsetX = 250.0f;
@@ -159,7 +195,7 @@ void SetupForceFieldDemo(VeloxWorld* world, std::vector<VisualEntity>& entities,
     for (const auto& f : fields) {
         auto id = Velox_CreateEntity(world);
         Velox_AddTransform(world, id, f.x, f.y, 0.0f);
-        Velox_AddForceField(world, id, f.type, 1500.0f, 150.0f); // Strength 1500, Radius 150
+        Velox_AddForceField(world, id, f.type, 5000.0f, 150.0f); // Strength 1500, Radius 150
         
         VisualEntity ve;
         ve.id = id;
@@ -176,6 +212,7 @@ void SetupForceFieldDemo(VeloxWorld* world, std::vector<VisualEntity>& entities,
 }
 
 void SetupOscillationDemo(VeloxWorld* world, std::vector<VisualEntity>& entities, int screenWidth, int screenHeight) {
+    AddScreenBoundaries(world, entities, screenWidth, screenHeight);
     // World is already reset by main loop
 
     // 1. Horizontal Oscillation (Red)
@@ -210,6 +247,7 @@ void SetupOscillationDemo(VeloxWorld* world, std::vector<VisualEntity>& entities
 }
 
 void SetupProjectileDemo(VeloxWorld* world, std::vector<VisualEntity>& entities, int screenWidth, int screenHeight) {
+    AddScreenBoundaries(world, entities, screenWidth, screenHeight);
     // Ground
     auto groundId = Velox_CreateEntity(world);
     Velox_AddTransform(world, groundId, screenWidth / 2.0f, screenHeight - 20.0f, 0.0f);
@@ -330,7 +368,15 @@ struct JointVisual {
 };
 std::vector<JointVisual> g_jointVisuals;
 
+struct SoftBodyVisual {
+    Velox::EntityID managerId;
+    std::vector<Velox::EntityID> nodes;
+    Color color;
+};
+std::vector<SoftBodyVisual> g_softBodyVisuals;
+
 void SetupJointDemo(VeloxWorld* world, std::vector<VisualEntity>& entities, int screenWidth, int screenHeight) {
+    AddScreenBoundaries(world, entities, screenWidth, screenHeight);
     g_jointVisuals.clear();
 
     Velox_SetGravity(world, 0.0f, 500.0f);
@@ -496,6 +542,7 @@ Vector2 g_raycastNormal = { 0, 0 };
 float g_raycastFrac = 0.0f;
 
 void SetupSandboxDemo(VeloxWorld* world, std::vector<VisualEntity>& entities, int screenWidth, int screenHeight) {
+    AddScreenBoundaries(world, entities, screenWidth, screenHeight);
     g_sandboxShapes.clear();
     g_jointVisuals.clear();
 
@@ -578,6 +625,7 @@ void SetupSandboxDemo(VeloxWorld* world, std::vector<VisualEntity>& entities, in
 }
 
 void SetupChainDemo(VeloxWorld* world, std::vector<VisualEntity>& entities, int screenWidth, int screenHeight) {
+    AddScreenBoundaries(world, entities, screenWidth, screenHeight);
     g_sandboxShapes.clear();
     g_jointVisuals.clear();
 
@@ -634,6 +682,7 @@ void SetupChainDemo(VeloxWorld* world, std::vector<VisualEntity>& entities, int 
 }
 
 void SetupRaycastDemo(VeloxWorld* world, std::vector<VisualEntity>& entities, int screenWidth, int screenHeight) {
+    AddScreenBoundaries(world, entities, screenWidth, screenHeight);
     g_sandboxShapes.clear();
     g_jointVisuals.clear();
 
@@ -666,6 +715,373 @@ void SetupRaycastDemo(VeloxWorld* world, std::vector<VisualEntity>& entities, in
     }
 }
 
+void SetupRevolutePrismaticDemo(VeloxWorld* world, std::vector<VisualEntity>& entities, int screenWidth, int screenHeight) {
+    AddScreenBoundaries(world, entities, screenWidth, screenHeight);
+    g_sandboxShapes.clear();
+    g_jointVisuals.clear();
+
+    Velox_SetGravity(world, 0.0f, 300.0f);
+
+    // --- 1. Revolute Hinge (Pin Joint) with motor ---
+    {
+        float pinX = screenWidth * 0.25f;
+        float pinY = screenHeight * 0.3f;
+        
+        auto pin = Velox_CreateEntity(world);
+        Velox_AddTransform(world, pin, pinX, pinY, 0.0f);
+        Velox_AddRigidBody(world, pin, 0.0f, true);
+        Velox_AddMovement(world, pin);
+        Velox_AddCircleCollider(world, pin, 12.0f);
+        VisualEntity pinVe; pinVe.id = pin; pinVe.color = WHITE; pinVe.type = 0; pinVe.radius = 12.0f;
+        entities.push_back(pinVe);
+
+        auto blade = Velox_CreateEntity(world);
+        Velox_AddTransform(world, blade, pinX, pinY + 80.0f, 0.0f);
+        Velox_AddRigidBody(world, blade, 1.5f, false);
+        Velox_AddMovement(world, blade);
+        Velox_AddBoxCollider(world, blade, 20.0f, 150.0f);
+        VisualEntity bladeVe; bladeVe.id = blade; bladeVe.color = ORANGE; bladeVe.type = 1; bladeVe.width = 20.0f; bladeVe.height = 150.0f;
+        entities.push_back(bladeVe);
+
+        // Hinge joint at pin position
+        Velox_AddRevoluteJoint(world, pin, blade, 0.0f, 0.0f, 0.0f, -80.0f, 0.0f, false, 0.0f, 0.0f, true, 1.5f, 25.0f);
+        g_jointVisuals.push_back({pin, blade, WHITE});
+    }
+
+    // --- 2. Prismatic Slider with limits ---
+    {
+        float anchorX = screenWidth * 0.5f;
+        float anchorY = screenHeight * 0.3f;
+
+        auto anchor = Velox_CreateEntity(world);
+        Velox_AddTransform(world, anchor, anchorX, anchorY, 0.0f);
+        Velox_AddRigidBody(world, anchor, 0.0f, true);
+        Velox_AddMovement(world, anchor);
+        Velox_AddBoxCollider(world, anchor, 40.0f, 40.0f);
+        VisualEntity anchorVe; anchorVe.id = anchor; anchorVe.color = WHITE; anchorVe.type = 1; anchorVe.width = 40.0f; anchorVe.height = 40.0f;
+        entities.push_back(anchorVe);
+
+        auto slider = Velox_CreateEntity(world);
+        Velox_AddTransform(world, slider, anchorX + 60.0f, anchorY, 0.0f);
+        Velox_AddRigidBody(world, slider, 1.0f, false);
+        Velox_AddMovement(world, slider);
+        Velox_AddBoxCollider(world, slider, 50.0f, 30.0f);
+        VisualEntity sliderVe; sliderVe.id = slider; sliderVe.color = SKYBLUE; sliderVe.type = 1; sliderVe.width = 50.0f; sliderVe.height = 30.0f;
+        entities.push_back(sliderVe);
+
+        // Prismatic slider along horizontal axis (1.0f, 0.0f), with limits [-150, 150]
+        Velox_AddPrismaticJoint(world, anchor, slider, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, true, -150.0f, 150.0f, true, 80.0f, 10.0f);
+        g_jointVisuals.push_back({anchor, slider, GRAY});
+    }
+
+    // --- 3. Gear Joint coupling two revolute hinges ---
+    {
+        float g1X = screenWidth * 0.75f;
+        float g1Y = screenHeight * 0.3f;
+        float g2X = screenWidth * 0.75f + 100.0f;
+        float g2Y = g1Y;
+
+        auto pin1 = Velox_CreateEntity(world);
+        Velox_AddTransform(world, pin1, g1X, g1Y, 0.0f);
+        Velox_AddRigidBody(world, pin1, 0.0f, true);
+        Velox_AddCircleCollider(world, pin1, 10.0f);
+        VisualEntity pin1Ve; pin1Ve.id = pin1; pin1Ve.color = WHITE; pin1Ve.type = 0; pin1Ve.radius = 10.0f;
+        entities.push_back(pin1Ve);
+
+        auto wheel1 = Velox_CreateEntity(world);
+        Velox_AddTransform(world, wheel1, g1X, g1Y, 0.0f);
+        Velox_AddRigidBody(world, wheel1, 1.0f, false);
+        Velox_AddMovement(world, wheel1);
+        Velox_AddCircleCollider(world, wheel1, 45.0f);
+        VisualEntity w1Ve; w1Ve.id = wheel1; w1Ve.color = GREEN; w1Ve.type = 0; w1Ve.radius = 45.0f;
+        entities.push_back(w1Ve);
+
+        Velox_AddRevoluteJoint(world, pin1, wheel1, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, false, 0.0f, 0.0f, true, 2.0f, 15.0f);
+
+        auto pin2 = Velox_CreateEntity(world);
+        Velox_AddTransform(world, pin2, g2X, g2Y, 0.0f);
+        Velox_AddRigidBody(world, pin2, 0.0f, true);
+        Velox_AddCircleCollider(world, pin2, 10.0f);
+        VisualEntity pin2Ve; pin2Ve.id = pin2; pin2Ve.color = WHITE; pin2Ve.type = 0; pin2Ve.radius = 10.0f;
+        entities.push_back(pin2Ve);
+
+        auto wheel2 = Velox_CreateEntity(world);
+        Velox_AddTransform(world, wheel2, g2X, g2Y, 0.0f);
+        Velox_AddRigidBody(world, wheel2, 1.0f, false);
+        Velox_AddMovement(world, wheel2);
+        Velox_AddCircleCollider(world, wheel2, 45.0f);
+        VisualEntity w2Ve; w2Ve.id = wheel2; w2Ve.color = LIME; w2Ve.type = 0; w2Ve.radius = 45.0f;
+        entities.push_back(w2Ve);
+
+        Velox_AddRevoluteJoint(world, pin2, wheel2, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, false, 0.0f, 0.0f, false, 0.0f, 0.0f);
+
+        // Gear Coupling: B spins in opposite direction (ratio = -1.0)
+        Velox_AddGearJoint(world, wheel1, wheel2, -1.0f, 0.0f);
+    }
+
+    // --- 4. Pulley Joint ---
+    {
+        float leftX = screenWidth * 0.4f;
+        float rightX = screenWidth * 0.6f;
+        float groundY = screenHeight * 0.6f;
+        float weightY = screenHeight * 0.75f;
+
+        auto weight1 = Velox_CreateEntity(world);
+        Velox_AddTransform(world, weight1, leftX, weightY, 0.0f);
+        Velox_AddRigidBody(world, weight1, 2.0f, false);
+        Velox_AddMovement(world, weight1);
+        Velox_AddBoxCollider(world, weight1, 40.0f, 40.0f);
+        VisualEntity w1Ve; w1Ve.id = weight1; w1Ve.color = PURPLE; w1Ve.type = 1; w1Ve.width = 40.0f; w1Ve.height = 40.0f;
+        entities.push_back(w1Ve);
+
+        auto weight2 = Velox_CreateEntity(world);
+        Velox_AddTransform(world, weight2, rightX, weightY, 0.0f);
+        Velox_AddRigidBody(world, weight2, 4.0f, false);
+        Velox_AddMovement(world, weight2);
+        Velox_AddBoxCollider(world, weight2, 40.0f, 40.0f);
+        VisualEntity w2Ve; w2Ve.id = weight2; w2Ve.color = MAGENTA; w2Ve.type = 1; w2Ve.width = 40.0f; w2Ve.height = 40.0f;
+        entities.push_back(w2Ve);
+
+        Velox_AddPulleyJoint(world, weight1, weight2, leftX, groundY, rightX, groundY, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 300.0f, 0.0f);
+    }
+}
+
+void SetupCCDShowcase(VeloxWorld* world, std::vector<VisualEntity>& entities, int screenWidth, int screenHeight) {
+    AddScreenBoundaries(world, entities, screenWidth, screenHeight);
+    g_sandboxShapes.clear();
+    g_jointVisuals.clear();
+
+    Velox_SetGravity(world, 0.0f, 0.0f);
+
+    // Thin wall in the middle
+    auto wall = Velox_CreateEntity(world);
+    Velox_AddTransform(world, wall, screenWidth * 0.5f, screenHeight * 0.5f, 0.0f);
+    Velox_AddRigidBody(world, wall, 0.0f, true);
+    Velox_AddMovement(world, wall);
+    Velox_AddBoxCollider(world, wall, 15.0f, screenHeight - 200.0f);
+    VisualEntity wallVe; wallVe.id = wall; wallVe.color = DARKGRAY; wallVe.type = 1; wallVe.width = 15.0f; wallVe.height = screenHeight - 200.0f;
+    entities.push_back(wallVe);
+
+    // High speed bullet (CCD Showcase)
+    auto bullet = Velox_CreateEntity(world);
+    Velox_AddTransform(world, bullet, 100.0f, screenHeight * 0.5f, 0.0f);
+    Velox_AddRigidBody(world, bullet, 1.0f, false);
+    Velox_AddMovement(world, bullet);
+    Velox_AddCircleCollider(world, bullet, 10.0f);
+    Velox_AddPhysicalMaterial(world, bullet, 0.2f, 0.1f, 0.9f);
+    Velox_SetVelocity(world, bullet, 35000.0f, 0.0f); // high speed bullet
+    
+    VisualEntity bulletVe; bulletVe.id = bullet; bulletVe.color = RED; bulletVe.type = 0; bulletVe.radius = 10.0f;
+    entities.push_back(bulletVe);
+}
+
+void SetupSleepingShowcase(VeloxWorld* world, std::vector<VisualEntity>& entities, int screenWidth, int screenHeight) {
+    AddScreenBoundaries(world, entities, screenWidth, screenHeight);
+    g_sandboxShapes.clear();
+    g_jointVisuals.clear();
+
+    Velox_SetGravity(world, 0.0f, 400.0f);
+
+    // Build a stack of boxes
+    float boxSize = 35.0f;
+    float startX = screenWidth * 0.5f;
+    float startY = screenHeight - 20.0f - 20.0f - boxSize/2.0f; // resting directly on bottom boundary floor (startY = 662.5f)
+
+    for (int row = 0; row < 6; ++row) {
+        auto box = Velox_CreateEntity(world);
+        float bx = startX;
+        float by = startY - row * boxSize;
+        Velox_AddTransform(world, box, bx, by, 0.0f);
+        Velox_AddRigidBody(world, box, 1.0f, false);
+        Velox_AddMovement(world, box);
+        Velox_AddBoxCollider(world, box, boxSize, boxSize);
+        Velox_AddPhysicalMaterial(world, box, 0.9f, 0.8f, 0.0f); // High friction, zero bounce
+        Velox_SetDamping(world, box, 0.4f, 0.4f);
+
+        VisualEntity ve; ve.id = box; ve.color = GOLD; ve.type = 1; ve.width = boxSize; ve.height = boxSize;
+        entities.push_back(ve);
+    }
+
+    // Heavy trigger ball to hit the stack
+    auto triggerBall = Velox_CreateEntity(world);
+    Velox_AddTransform(world, triggerBall, screenWidth * 0.2f, screenHeight * 0.5f, 0.0f);
+    Velox_AddRigidBody(world, triggerBall, 10.0f, false);
+    Velox_AddMovement(world, triggerBall);
+    Velox_AddCircleCollider(world, triggerBall, 30.0f);
+    Velox_SetVelocity(world, triggerBall, 350.0f, -50.0f);
+    
+    VisualEntity tbVe; tbVe.id = triggerBall; tbVe.color = ORANGE; tbVe.type = 0; tbVe.radius = 30.0f;
+    entities.push_back(tbVe);
+}
+
+void DrawSoftBodyVisual(VeloxWorld* world, const SoftBodyVisual& sbv) {
+    int n = sbv.nodes.size();
+    if (n < 3) return;
+
+    std::vector<Vector2> pts(n);
+    Vector2 center = {0.0f, 0.0f};
+
+    for (int i = 0; i < n; ++i) {
+        float x, y, rot;
+        Velox_GetPosition(world, sbv.nodes[i], &x, &y, &rot);
+        pts[i] = {x, y};
+        center.x += x;
+        center.y += y;
+    }
+    center.x /= n;
+    center.y /= n;
+
+    // Draw filled polygon using triangle fan from center
+    for (int i = 0; i < n; ++i) {
+        int next = (i + 1) % n;
+        DrawTriangle(center, pts[i], pts[next], Fade(sbv.color, 0.5f));
+    }
+
+    // Draw outline
+    for (int i = 0; i < n; ++i) {
+        int next = (i + 1) % n;
+        DrawLineEx(pts[i], pts[next], 3.0f, sbv.color);
+        DrawCircleV(pts[i], 3.5f, WHITE);
+    }
+}
+
+void SetupSoftBodySandbox(VeloxWorld* world, std::vector<VisualEntity>& entities, int screenWidth, int screenHeight) {
+    AddScreenBoundaries(world, entities, screenWidth, screenHeight);
+    g_softBodyVisuals.clear();
+    g_jointVisuals.clear();
+
+    Velox_SetGravity(world, 0.0f, 400.0f);
+
+    // 1. Static obstacles to bounce off
+    auto circleObstacle = Velox_CreateEntity(world);
+    Velox_AddTransform(world, circleObstacle, screenWidth * 0.3f, screenHeight * 0.65f, 0.0f);
+    Velox_AddRigidBody(world, circleObstacle, 0.0f, true);
+    Velox_AddMovement(world, circleObstacle);
+    Velox_AddCircleCollider(world, circleObstacle, 50.0f);
+    entities.push_back({circleObstacle, GRAY, 50.0f, 0.0f, 0.0f, 0, 0.0f, false, nullptr});
+
+    auto boxObstacle = Velox_CreateEntity(world);
+    Velox_AddTransform(world, boxObstacle, screenWidth * 0.7f, screenHeight * 0.65f, 0.35f); // Rotated
+    Velox_AddRigidBody(world, boxObstacle, 0.0f, true);
+    Velox_AddMovement(world, boxObstacle);
+    Velox_AddBoxCollider(world, boxObstacle, 160.0f, 40.0f);
+    entities.push_back({boxObstacle, GRAY, 0.0f, 160.0f, 40.0f, 1, 0.0f, false, nullptr});
+
+    // 2. Blob soft body (Area preserved)
+    auto blob = Velox_CreateSoftBodyBlob(world, screenWidth * 0.3f, screenHeight * 0.25f, 65.0f, 16, 0.04f, 0.05f, 10.0f);
+    SoftBodyVisual sbv1;
+    sbv1.managerId = blob;
+    sbv1.color = SKYBLUE;
+    int count = Velox_GetSoftBodyNodeCount(world, blob);
+    for (int i = 0; i < count; ++i) {
+        sbv1.nodes.push_back(Velox_GetSoftBodyNode(world, blob, i));
+    }
+    g_softBodyVisuals.push_back(sbv1);
+
+    // 3. Shape matched soft body (Star shape)
+    float starVertsX[] = { 0, 20, 65, 30, 45, 0, -45, -30, -65, -20 };
+    float starVertsY[] = { -65, -20, -20, 10, 55, 30, 55, 10, -20, -20 };
+    int starCount = 10;
+    auto star = Velox_CreateSoftBodyShapeMatched(world, screenWidth * 0.7f, screenHeight * 0.25f, starVertsX, starVertsY, starCount, 0.02f, 9.0f);
+    SoftBodyVisual sbv2;
+    sbv2.managerId = star;
+    sbv2.color = LIME;
+    int count2 = Velox_GetSoftBodyNodeCount(world, star);
+    for (int i = 0; i < count2; ++i) {
+        sbv2.nodes.push_back(Velox_GetSoftBodyNode(world, star, i));
+    }
+    g_softBodyVisuals.push_back(sbv2);
+}
+
+void SetupSoftBodyFunnel(VeloxWorld* world, std::vector<VisualEntity>& entities, int screenWidth, int screenHeight) {
+    AddScreenBoundaries(world, entities, screenWidth, screenHeight);
+    g_softBodyVisuals.clear();
+    g_jointVisuals.clear();
+
+    Velox_SetGravity(world, 0.0f, 450.0f);
+
+    // Funnel Dimensions
+    float wallH = 25.0f;
+    float flatW = 380.0f;
+    float slopeW = 290.0f;
+
+    // 1. Horizontal Flat Top Left Wall (___) - Shifted out slightly for spacing
+    auto leftFlat = Velox_CreateEntity(world);
+    Velox_AddTransform(world, leftFlat, screenWidth * 0.5f - 350.0f, screenHeight * 0.22f, 0.0f);
+    Velox_AddRigidBody(world, leftFlat, 0.0f, true);
+    Velox_AddMovement(world, leftFlat);
+    Velox_AddBoxCollider(world, leftFlat, flatW, wallH);
+    Velox_AddPhysicalMaterial(world, leftFlat, 0.1f, 0.05f, 0.4f);
+    entities.push_back({leftFlat, GRAY, 0.0f, flatW, wallH, 1, 0.0f, false, nullptr});
+
+    // 2. Horizontal Flat Top Right Wall (___) - Shifted out slightly for spacing
+    auto rightFlat = Velox_CreateEntity(world);
+    Velox_AddTransform(world, rightFlat, screenWidth * 0.5f + 350.0f, screenHeight * 0.22f, 0.0f);
+    Velox_AddRigidBody(world, rightFlat, 0.0f, true);
+    Velox_AddMovement(world, rightFlat);
+    Velox_AddBoxCollider(world, rightFlat, flatW, wallH);
+    Velox_AddPhysicalMaterial(world, rightFlat, 0.1f, 0.05f, 0.4f);
+    entities.push_back({rightFlat, GRAY, 0.0f, flatW, wallH, 1, 0.0f, false, nullptr});
+
+    // 3. Left Diagonal Slope (\) - Shifted very close to center to restrict exit hole
+    auto leftSlope = Velox_CreateEntity(world);
+    Velox_AddTransform(world, leftSlope, screenWidth * 0.5f - 145.0f, screenHeight * 0.40f, 0.65f);
+    Velox_AddRigidBody(world, leftSlope, 0.0f, true);
+    Velox_AddMovement(world, leftSlope);
+    Velox_AddBoxCollider(world, leftSlope, slopeW, wallH);
+    Velox_AddPhysicalMaterial(world, leftSlope, 0.1f, 0.05f, 0.4f);
+    entities.push_back({leftSlope, GRAY, 0.0f, slopeW, wallH, 1, 0.65f, false, nullptr});
+
+    // 4. Right Diagonal Slope (/) - Shifted very close to center to restrict exit hole
+    auto rightSlope = Velox_CreateEntity(world);
+    Velox_AddTransform(world, rightSlope, screenWidth * 0.5f + 145.0f, screenHeight * 0.40f, -0.65f);
+    Velox_AddRigidBody(world, rightSlope, 0.0f, true);
+    Velox_AddMovement(world, rightSlope);
+    Velox_AddBoxCollider(world, rightSlope, slopeW, wallH);
+    Velox_AddPhysicalMaterial(world, rightSlope, 0.1f, 0.05f, 0.4f);
+    entities.push_back({rightSlope, GRAY, 0.0f, slopeW, wallH, 1, -0.65f, false, nullptr});
+
+    // Pre-spawning of soft bodies is removed from SetupSoftBodyFunnel
+    // They are now spawned dynamically in the update loop 1 second apart.
+}
+
+void SetupSoftBodyStacking(VeloxWorld* world, std::vector<VisualEntity>& entities, int screenWidth, int screenHeight) {
+    AddScreenBoundaries(world, entities, screenWidth, screenHeight);
+    g_softBodyVisuals.clear();
+    g_jointVisuals.clear();
+
+    Velox_SetGravity(world, 0.0f, 400.0f);
+
+    // Large Blob at bottom serving as soft mattress
+    auto mattress = Velox_CreateSoftBodyBlob(world, screenWidth * 0.5f, screenHeight * 0.75f, 90.0f, 20, 0.02f, 0.03f, 12.0f);
+    SoftBodyVisual sbv;
+    sbv.managerId = mattress;
+    sbv.color = MAGENTA;
+    int count = Velox_GetSoftBodyNodeCount(world, mattress);
+    for (int i = 0; i < count; ++i) {
+        sbv.nodes.push_back(Velox_GetSoftBodyNode(world, mattress, i));
+    }
+    g_softBodyVisuals.push_back(sbv);
+
+    // Rigid heavy dynamic box to fall on the soft body
+    auto box = Velox_CreateEntity(world);
+    Velox_AddTransform(world, box, screenWidth * 0.48f, screenHeight * 0.35f, 0.0f);
+    Velox_AddRigidBody(world, box, 12.0f, false);
+    Velox_AddMovement(world, box);
+    Velox_AddBoxCollider(world, box, 60.0f, 60.0f);
+    Velox_AddPhysicalMaterial(world, box, 0.8f, 0.6f, 0.1f);
+    entities.push_back({box, YELLOW, 0.0f, 60.0f, 60.0f, 1, 0.0f, false, nullptr});
+
+    // Rigid heavy ball to fall on the soft body
+    auto ball = Velox_CreateEntity(world);
+    Velox_AddTransform(world, ball, screenWidth * 0.53f, screenHeight * 0.15f, 0.0f);
+    Velox_AddRigidBody(world, ball, 8.0f, false);
+    Velox_AddMovement(world, ball);
+    Velox_AddCircleCollider(world, ball, 35.0f);
+    Velox_AddPhysicalMaterial(world, ball, 0.5f, 0.3f, 0.1f);
+    entities.push_back({ball, ORANGE, 35.0f, 0.0f, 0.0f, 0, 0.0f, false, nullptr});
+}
+
 int main() {
     // Initialization
     const int screenWidth = 1280;
@@ -694,26 +1110,54 @@ int main() {
             if (world) Velox_DestroyWorld(world);
             world = Velox_CreateWorld();
             entities.clear();
+            g_softBodyVisuals.clear();
             frameRotation = 0.0f;
 
             if (currentScene == SceneType::BouncingBalls) {
+                std::cout << "[SCENE] Loading scene: Bouncing Balls" << std::endl;
                 SetupBouncingBalls(world, entities, screenWidth, screenHeight);
             } else if (currentScene == SceneType::ForceFieldDemo) {
+                std::cout << "[SCENE] Loading scene: Force Field Demo" << std::endl;
                 SetupForceFieldDemo(world, entities, screenWidth, screenHeight);
             } else if (currentScene == SceneType::OscillationDemo) {
+                std::cout << "[SCENE] Loading scene: Oscillation Demo" << std::endl;
                 SetupOscillationDemo(world, entities, screenWidth, screenHeight);
             } else if (currentScene == SceneType::ProjectileDemo) {
+                std::cout << "[SCENE] Loading scene: Projectile Demo" << std::endl;
                 SetupProjectileDemo(world, entities, screenWidth, screenHeight);
             } else if (currentScene == SceneType::GravityDemo) {
+                std::cout << "[SCENE] Loading scene: Gravity Demo" << std::endl;
                 SetupGravityDemo(world, entities, screenWidth, screenHeight);
             } else if (currentScene == SceneType::JointDemo) {
+                std::cout << "[SCENE] Loading scene: Joint Demo" << std::endl;
                 SetupJointDemo(world, entities, screenWidth, screenHeight);
             } else if (currentScene == SceneType::SandboxDemo) {
+                std::cout << "[SCENE] Loading scene: Sandbox Demo" << std::endl;
                 SetupSandboxDemo(world, entities, screenWidth, screenHeight);
             } else if (currentScene == SceneType::ChainDemo) {
+                std::cout << "[SCENE] Loading scene: Chain Demo" << std::endl;
                 SetupChainDemo(world, entities, screenWidth, screenHeight);
             } else if (currentScene == SceneType::RaycastDemo) {
+                std::cout << "[SCENE] Loading scene: Raycast Demo" << std::endl;
                 SetupRaycastDemo(world, entities, screenWidth, screenHeight);
+            } else if (currentScene == SceneType::RevolutePrismaticDemo) {
+                std::cout << "[SCENE] Loading scene: Revolute Prismatic Demo" << std::endl;
+                SetupRevolutePrismaticDemo(world, entities, screenWidth, screenHeight);
+            } else if (currentScene == SceneType::CCDShowcase) {
+                std::cout << "[SCENE] Loading scene: CCD Showcase" << std::endl;
+                SetupCCDShowcase(world, entities, screenWidth, screenHeight);
+            } else if (currentScene == SceneType::SleepingShowcase) {
+                std::cout << "[SCENE] Loading scene: Sleeping Showcase" << std::endl;
+                SetupSleepingShowcase(world, entities, screenWidth, screenHeight);
+            } else if (currentScene == SceneType::SoftBodySandbox) {
+                std::cout << "[SCENE] Loading scene: Soft Body Sandbox" << std::endl;
+                SetupSoftBodySandbox(world, entities, screenWidth, screenHeight);
+            } else if (currentScene == SceneType::SoftBodyFunnel) {
+                std::cout << "[SCENE] Loading scene: Soft Body Funnel & Squeeze" << std::endl;
+                SetupSoftBodyFunnel(world, entities, screenWidth, screenHeight);
+            } else if (currentScene == SceneType::SoftBodyStacking) {
+                std::cout << "[SCENE] Loading scene: Cushion Stacking Showcase" << std::endl;
+                SetupSoftBodyStacking(world, entities, screenWidth, screenHeight);
             }
             sceneChanged = false;
         }
@@ -754,7 +1198,7 @@ int main() {
             Velox_AddMovement(world, id);
             Velox_AddBoxCollider(world, id, 40.0f, 10.0f); // Arrow shape
             // FaceVelocity=true, Speed=0 (set later), MaxSpeed=1000, BounceFactor=0.1 (stick)
-            Velox_AddProjectile(world, id, true, 0.0f, 1000.0f, 0.1f);
+            Velox_AddProjectile(world, id, true, 0.0f, 1000.0f, 0.01f);
             
             // Calculate velocity towards mouse
             float dx = mouse.x - spawnX;
@@ -770,7 +1214,7 @@ int main() {
             ve.width = 40.0f;
             ve.height = 10.0f;
             ve.spawnTime = gameTime;
-            ve.isProjectile = true;
+            ve.isProjectile = false;
             entities.push_back(ve);
         }
         
@@ -782,7 +1226,7 @@ int main() {
             if (IsKeyDown(KEY_D)) gravAngle += rotSpeed * 2.0f;
             if (IsKeyPressed(KEY_W)) gravAngle = -1.5708f; // straight up
             if (IsKeyPressed(KEY_S)) gravAngle =  1.5708f; // straight down
-            float gMag = 400.0f;
+            float gMag = 980.0f;
             Velox_SetGravity(world, cosf(gravAngle) * gMag, sinf(gravAngle) * gMag);
         }
 
@@ -864,6 +1308,68 @@ int main() {
                 }
             }
 
+            // --- Dynamic Soft Body Spawner (Funnel Demo) ---
+            if (currentScene == SceneType::SoftBodyFunnel) {
+                static float funnelSpawnTimer = 0.0f;
+                static int nextFunnelSpawnIndex = 0;
+                
+                // Reset spawns when scene is reloaded/changed
+                static SceneType lastScene = SceneType::BouncingBalls;
+                if (lastScene != currentScene) {
+                    funnelSpawnTimer = 0.0f;
+                    nextFunnelSpawnIndex = 0;
+                    lastScene = currentScene;
+                }
+
+                funnelSpawnTimer += dt;
+                
+                // Spawn one body every 1.0 second, up to 4 soft bodies
+                if (funnelSpawnTimer >= 1.0f && nextFunnelSpawnIndex < 4) {
+                    funnelSpawnTimer = 0.0f;
+                    float spawnX = screenWidth * 0.5f; // Vertical center line
+                    float spawnY = screenHeight * 0.08f; // Spawning height above funnel
+
+                    if (nextFunnelSpawnIndex == 0) {
+                        // Spawn 1st Blob (Orange)
+                        auto blob1 = Velox_CreateSoftBodyBlob(world, spawnX, spawnY, 45.0f, 12, 0.04f, 0.05f, 9.0f);
+                        SoftBodyVisual sbv1;
+                        sbv1.managerId = blob1;
+                        sbv1.color = ORANGE;
+                        for (int i = 0; i < 12; ++i) sbv1.nodes.push_back(Velox_GetSoftBodyNode(world, blob1, i));
+                        g_softBodyVisuals.push_back(sbv1);
+                    } else if (nextFunnelSpawnIndex == 1) {
+                        // Spawn 1st Star (Pink)
+                        float starVertsX[] = { 0, 15, 50, 22, 35, 0, -35, -22, -50, -15 };
+                        float starVertsY[] = { -50, -15, -15, 8, 42, 22, 42, 8, -15, -15 };
+                        auto star1 = Velox_CreateSoftBodyShapeMatched(world, spawnX, spawnY, starVertsX, starVertsY, 10, 0.02f, 8.0f);
+                        SoftBodyVisual sbv2;
+                        sbv2.managerId = star1;
+                        sbv2.color = PINK;
+                        for (int i = 0; i < 10; ++i) sbv2.nodes.push_back(Velox_GetSoftBodyNode(world, star1, i));
+                        g_softBodyVisuals.push_back(sbv2);
+                    } else if (nextFunnelSpawnIndex == 2) {
+                        // Spawn 2nd Blob (Green)
+                        auto blob2 = Velox_CreateSoftBodyBlob(world, spawnX, spawnY, 40.0f, 12, 0.04f, 0.05f, 9.0f);
+                        SoftBodyVisual sbv3;
+                        sbv3.managerId = blob2;
+                        sbv3.color = GREEN;
+                        for (int i = 0; i < 12; ++i) sbv3.nodes.push_back(Velox_GetSoftBodyNode(world, blob2, i));
+                        g_softBodyVisuals.push_back(sbv3);
+                    } else if (nextFunnelSpawnIndex == 3) {
+                        // Spawn 2nd Star/Shape (Blue)
+                        float hexVertsX[] = { 0, 35, 35, 0, -35, -35 };
+                        float hexVertsY[] = { -40, -20, 20, 40, 20, -20 };
+                        auto star2 = Velox_CreateSoftBodyShapeMatched(world, spawnX, spawnY, hexVertsX, hexVertsY, 6, 0.03f, 8.0f);
+                        SoftBodyVisual sbv4;
+                        sbv4.managerId = star2;
+                        sbv4.color = SKYBLUE;
+                        for (int i = 0; i < 6; ++i) sbv4.nodes.push_back(Velox_GetSoftBodyNode(world, star2, i));
+                        g_softBodyVisuals.push_back(sbv4);
+                    }
+                    nextFunnelSpawnIndex++;
+                }
+            }
+
             Velox_Step(world, dt);
         }
 
@@ -879,6 +1385,60 @@ int main() {
                     Velox_GetPosition(world, jv.idB, &bx, &by, &br);
                     DrawLineEx({ax, ay}, {bx, by}, 2.5f, jv.color);
                 }
+            }
+
+            // --- Custom Joint Renderings for Revolute & Prismatic Showcase ---
+            if (currentScene == SceneType::RevolutePrismaticDemo) {
+                for (const auto& jv : g_jointVisuals) {
+                    float ax, ay, ar, bx, by, br;
+                    Velox_GetPosition(world, jv.idA, &ax, &ay, &ar);
+                    Velox_GetPosition(world, jv.idB, &bx, &by, &br);
+                    DrawLineEx({ax, ay}, {bx, by}, 2.0f, jv.color);
+                }
+
+                // 1. Draw Prismatic Slider Rail
+                float railY = screenHeight * 0.3f;
+                float railMinX = screenWidth * 0.5f - 150.0f;
+                float railMaxX = screenWidth * 0.5f + 150.0f;
+                DrawLineEx({railMinX, railY}, {railMaxX, railY}, 2.0f, Fade(SKYBLUE, 0.4f));
+                DrawCircleV({railMinX, railY}, 4.0f, SKYBLUE);
+                DrawCircleV({railMaxX, railY}, 4.0f, SKYBLUE);
+                DrawText("Slider Axis Guide", (int)railMinX, (int)railY - 15, 10, SKYBLUE);
+
+                // 2. Draw Pulley Cables
+                float leftX = screenWidth * 0.4f;
+                float rightX = screenWidth * 0.6f;
+                float groundY = screenHeight * 0.6f;
+
+                float w1x = 0, w1y = 0, w2x = 0, w2y = 0;
+                for (const auto& ve : entities) {
+                    if (ve.color.r == PURPLE.r && ve.color.g == PURPLE.g && ve.color.b == PURPLE.b) {
+                        float rot;
+                        Velox_GetPosition(world, ve.id, &w1x, &w1y, &rot);
+                    }
+                    if (ve.color.r == MAGENTA.r && ve.color.g == MAGENTA.g && ve.color.b == MAGENTA.b) {
+                        float rot;
+                        Velox_GetPosition(world, ve.id, &w2x, &w2y, &rot);
+                    }
+                }
+
+                if (w1x != 0 && w2x != 0) {
+                    DrawLineEx({w1x, w1y}, {leftX, groundY}, 2.0f, LIGHTGRAY);
+                    DrawLineEx({leftX, groundY}, {rightX, groundY}, 2.0f, LIGHTGRAY);
+                    DrawLineEx({rightX, groundY}, {w2x, w2y}, 2.0f, LIGHTGRAY);
+
+                    // Draw pulley wheel circles
+                    DrawCircleV({leftX, groundY}, 12.0f, DARKGRAY);
+                    DrawCircleLines((int)leftX, (int)groundY, 12, WHITE);
+                    DrawCircleV({rightX, groundY}, 12.0f, DARKGRAY);
+                    DrawCircleLines((int)rightX, (int)groundY, 12, WHITE);
+                }
+
+                // 3. Draw Labels for clarity
+                DrawText("Revolute Hinge", (int)(screenWidth * 0.25f) - 40, (int)(screenHeight * 0.3f) - 60, 11, ORANGE);
+                DrawText("Prismatic Slider", (int)(screenWidth * 0.5f) - 40, (int)(screenHeight * 0.3f) - 60, 11, SKYBLUE);
+                DrawText("Coupled Gears", (int)(screenWidth * 0.75f) - 30, (int)(screenHeight * 0.3f) - 60, 11, GREEN);
+                DrawText("Pulley System", (int)(screenWidth * 0.5f) - 40, (int)(screenHeight * 0.6f) - 30, 11, PURPLE);
             }
 
             // --- Draw Gravity Arrow (Gravity Demo) ---
@@ -941,17 +1501,25 @@ int main() {
                 float x, y, rot;
                 Velox_GetPosition(world, ve.id, &x, &y, &rot);
                 
+                Color drawColor = ve.color;
+                if (Velox_IsSleeping(world, ve.id)) {
+                    drawColor = DARKGRAY;
+                }
+                
                 if (ve.type == 0) { // Circle (Ball)
-                    DrawCircleV({x, y}, ve.radius, ve.color);
+                    DrawCircleV({x, y}, ve.radius, drawColor);
                     // Subtle shine highlight
                     DrawCircleV({x - ve.radius*0.25f, y - ve.radius*0.25f}, ve.radius*0.35f, Fade(WHITE, 0.25f));
                     DrawLineEx({x, y}, {x + cosf(rot)*ve.radius, y + sinf(rot)*ve.radius}, 2.0f, Fade(BLACK, 0.5f));
                 } else if (ve.type == 1) { // Box
-                    DrawRectanglePro({x, y, ve.width, ve.height}, {ve.width/2, ve.height/2}, rot * RAD2DEG, ve.color);
+                    DrawRectanglePro({x, y, ve.width, ve.height}, {ve.width/2, ve.height/2}, rot * RAD2DEG, drawColor);
                 } else if (ve.type == 2) { // Force Field (visual)
                     DrawCircleV({x, y}, ve.radius, ve.color);
                     DrawCircleLines((int)x, (int)y, (int)ve.radius, Fade(WHITE, 0.6f));
                 }
+            }
+            for (const auto& sbv : g_softBodyVisuals) {
+                DrawSoftBodyVisual(world, sbv);
             }
 
             // --- UI Overlay ---
@@ -1032,12 +1600,49 @@ int main() {
                 DrawText("- Interaction: Casts to mouse point", widgetX + 10, widgetY + 110, 9, GRAY);
                 DrawText("- Highlight: Red line to hit point", widgetX + 10, widgetY + 125, 9, GRAY);
                 DrawText("- Vector: Green line shows hit normal", widgetX + 10, widgetY + 140, 9, GRAY);
+            } else if (currentScene == SceneType::RevolutePrismaticDemo) {
+                DrawText("Sim: Revolute & Prismatic Joints", widgetX + 10, widgetY + 60, 10, YELLOW);
+                DrawText("Showcased Features:", widgetX + 10, widgetY + 80, 9, {255, 220, 60, 255});
+                DrawText("- Orange blade: Revolute Hinge Motor", widgetX + 10, widgetY + 95, 9, GRAY);
+                DrawText("- Blue box: Prismatic Slider Motor", widgetX + 10, widgetY + 110, 9, GRAY);
+                DrawText("- Green/Lime: Coupled Gear rotation", widgetX + 10, widgetY + 125, 9, GRAY);
+                DrawText("- Purple boxes: Interactive Pulley link", widgetX + 10, widgetY + 140, 9, GRAY);
+            } else if (currentScene == SceneType::CCDShowcase) {
+                DrawText("Sim: CCD vs Tunneling", widgetX + 10, widgetY + 60, 10, YELLOW);
+                DrawText("Showcased Features:", widgetX + 10, widgetY + 80, 9, {255, 220, 60, 255});
+                DrawText("- Red Ball: Hyper-speed bullet (3500px/s)", widgetX + 10, widgetY + 95, 9, GRAY);
+                DrawText("- Thin wall: Bounces bullet perfectly", widgetX + 10, widgetY + 110, 9, GRAY);
+                DrawText("- Precision: Zero tunneling through math CCD", widgetX + 10, widgetY + 125, 9, GRAY);
+            } else if (currentScene == SceneType::SleepingShowcase) {
+                DrawText("Sim: Sleeping & Activation", widgetX + 10, widgetY + 60, 10, YELLOW);
+                DrawText("Showcased Features:", widgetX + 10, widgetY + 80, 9, {255, 220, 60, 255});
+                DrawText("- Dark Gray: Sleeping bodies (deactivated)", widgetX + 10, widgetY + 95, 9, GRAY);
+                DrawText("- Gold/Orange: Active awake bodies", widgetX + 10, widgetY + 110, 9, GRAY);
+                DrawText("- Launch: Trigger ball wakes up stack", widgetX + 10, widgetY + 125, 9, GRAY);
+            } else if (currentScene == SceneType::SoftBodySandbox) {
+                DrawText("Sim: Soft Body Sandbox", widgetX + 10, widgetY + 60, 10, YELLOW);
+                DrawText("Showcased Features:", widgetX + 10, widgetY + 80, 9, {255, 220, 60, 255});
+                DrawText("- Blue Blob: Area preserved squishy body", widgetX + 10, widgetY + 95, 9, GRAY);
+                DrawText("- Green Star: Shape-matched elastic shape", widgetX + 10, widgetY + 110, 9, GRAY);
+                DrawText("- Interact: Obstacles deform soft bodies", widgetX + 10, widgetY + 125, 9, GRAY);
+            } else if (currentScene == SceneType::SoftBodyFunnel) {
+                DrawText("Sim: Squeeze & Funnel Demo", widgetX + 10, widgetY + 60, 10, YELLOW);
+                DrawText("Showcased Features:", widgetX + 10, widgetY + 80, 9, {255, 220, 60, 255});
+                DrawText("- Funnel slopes: static angled walls", widgetX + 10, widgetY + 95, 9, GRAY);
+                DrawText("- Deform: Soft shapes squeeze through gap", widgetX + 10, widgetY + 110, 9, GRAY);
+                DrawText("- Elasticity: Recover original rest shape", widgetX + 10, widgetY + 125, 9, GRAY);
+            } else if (currentScene == SceneType::SoftBodyStacking) {
+                DrawText("Sim: Cushion Stacking Showcase", widgetX + 10, widgetY + 60, 10, YELLOW);
+                DrawText("Showcased Features:", widgetX + 10, widgetY + 80, 9, {255, 220, 60, 255});
+                DrawText("- Magenta Cushion: squishy soft mattress", widgetX + 10, widgetY + 95, 9, GRAY);
+                DrawText("- Heavy load: dynamic box & ball stack", widgetX + 10, widgetY + 110, 9, GRAY);
+                DrawText("- Compliance: Cushion sags under weight", widgetX + 10, widgetY + 125, 9, GRAY);
             }
-
+            
             // Combo Box
             int comboX = widgetX;
             int comboY = widgetY + widgetH + 10;
-            int comboW = 200;
+            int comboW = 320;
             int comboH = 30;
             
             DrawRectangle(comboX, comboY, comboW, comboH, Fade(WHITE, 0.2f));
@@ -1053,7 +1658,8 @@ int main() {
             }
 
             if (isDropdownOpen) {
-                for (int i = 0; i < 9; ++i) { // 9 scenes
+                int sceneCount = sizeof(sceneNames) / sizeof(sceneNames[0]);
+                for (int i = 0; i < sceneCount; ++i) {
                     int itemY = comboY + comboH + (i * comboH);
                     bool hoverItem = (mouse.x >= comboX && mouse.x <= comboX + comboW && mouse.y >= itemY && mouse.y <= itemY + comboH);
                     

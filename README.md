@@ -14,15 +14,20 @@
 
 | Feature | Details |
 | :--- | :--- |
+| **SSE2 SIMD Optimization** | High-performance vector operations using SSE2 CPU instructions (compile-time opt-in via `-DVELOX_SIMD=ON`) |
+| **CCD (Continuous Collision)** | Swept-volume TOI calculations prevent high-speed tunneling with sub-stepping |
+| **Rigid Body Sleeping** | Deactivates dormant bodies to save CPU cycles; automatically wakes them on collision/contact |
 | **ECS Architecture** | Cache-friendly component arrays for high entity counts with minimal overhead |
 | **XPBD Solver** | Sub-stepped (8×/frame) for stable stacking, joints, and high-speed collisions |
-| **Broadphase** | Spatial hash grid reduces collision pair complexity from O(N²) to O(N) |
+| **Broadphase** | Flat contiguous array grid — zero heap allocations, $O(N)$ average complexity, cache-friendly cell traversal |
 | **Collider Types** | Circle, Box (OBB), Convex Polygon, Chain (one-sided terrain) |
-| **Constraints** | Distance joints with compliance (stiffness), damping, and angular motors |
+| **XPBD Joints** | Distance, Revolute (Hinge), Prismatic (Slider), Gear, and Pulley constraints |
+| **Soft Bodies** | XPBD-based deformable bodies: **Blob** (area-preservation) and **ShapeMatched** (elastic rest-shape) |
+| **Sensors & Groups** | Sensor colliders detect overlaps without response; collision group IDs exclude friendly-fire pairs |
 | **Force Fields** | Gravity wells, repulsors, and vortex fields affecting bodies in range |
 | **Raycasting** | Scene raycast returning hit point, normal, fraction, and entity ID |
 | **C API** | Flat C-style API (`VeloxAPI.h`) for easy integration with any language or engine |
-| **Visualizer** | Raylib-powered interactive demo suite for testing and showcase |
+| **Visualizer** | Raylib-powered interactive demo suite with sleeping, CCD, joint, and soft-body showcases |
 
 ---
 
@@ -64,19 +69,24 @@ Components are pure POD structs — no logic, no virtual functions.
 | Component | Key Fields | Purpose |
 | :--- | :--- | :--- |
 | `TransformComponent` | `Position`, `Rotation`, `Scale` | World-space pose |
-| `RigidBodyComponent` | `Mass`, `InverseMass`, `IsStatic` | Dynamic properties (InverseMass=0 → static) |
-| `MovementComponent` | `Velocity`, `AngularVelocity`, `Force`, `Damping` | Integration state |
-| `ColliderComponent` | `Type`, `Radius` / `BoxHalfExtents` / `Vertices` | Collision shape |
+| `RigidBodyComponent` | `Mass`, `InverseMass`, `IsStatic`, `IsSleeping`, `SleepTimer`, `AllowSleep` | Dynamic properties (InverseMass=0 → static), and deactivation sleep state |
+| `MovementComponent` | `Velocity`, `AngularVelocity`, `Force`, `Damping`, `PrevPosition`, `PrevVelocity` | Integration state + XPBD solver snapshots |
+| `ColliderComponent` | `Type`, `Radius` / `BoxHalfExtents` / `Vertices`, `CenterOffset`, `IsSensor`, `GroupId` | Collision shape; sensor flag; group-ID filtering |
 | `PhysicalMaterialComponent` | `StaticFriction`, `DynamicFriction`, `Restitution` | Surface response |
 
-### Behaviour
+### Behaviour & Constraints
 | Component | Purpose |
 | :--- | :--- |
 | `ForceFieldComponent` | Radial forces: `Inward`, `Outward`, `Clockwise`, `AntiClockwise` |
 | `OscillationComponent` | Sine-wave platform motion along a configurable axis |
 | `RotationComponent` | Constant angular velocity motor |
-| `ProjectileComponent` | Aligns rotation to velocity (arrows, missiles) |
+| `ProjectileComponent` | Aligns rotation to velocity (arrows, missiles); configurable `BounceFactor` |
 | `JointComponent` | XPBD distance constraint with optional angular motor |
+| `RevoluteJointComponent` | XPBD angular hinge constraint with limits and motor |
+| `PrismaticJointComponent` | XPBD sliding prismatic constraint with axis limits and motor |
+| `GearJointComponent` | Coupling constraint linking rotation speed of two bodies |
+| `PulleyJointComponent` | Rope pulley constraint linking suspended lengths of two bodies |
+| `SoftBodyComponent` | XPBD deformable body: `Blob` (area preservation) or `ShapeMatched` (elastic rest-shape) |
 
 ---
 
@@ -117,6 +127,41 @@ while (running) {
 Velox_DestroyWorld(world);
 ```
 
+### Soft Body Quick-Start
+
+```cpp
+// Blob — closed loop with area preservation
+Velox::EntityID blob = Velox_CreateSoftBodyBlob(
+    world,
+    640.0f, 200.0f,  // center
+    60.0f,           // radius
+    12,              // node count
+    0.001f,          // area compliance (lower = stiffer volume)
+    0.0f,            // distance joint compliance between nodes
+    8.0f             // per-node circle radius
+);
+
+// ShapeMatched — elastic body that snaps back to a rest shape
+float vx[] = {-40,-40, 40, 40};
+float vy[] = {-40, 40, 40,-40};
+Velox::EntityID box = Velox_CreateSoftBodyShapeMatched(
+    world,
+    400.0f, 200.0f,  // center
+    vx, vy, 4,       // local vertex array
+    0.15f,           // stiffness [0, 1]
+    10.0f            // per-node radius
+);
+
+// Iterate nodes for rendering
+int n = Velox_GetSoftBodyNodeCount(world, blob);
+for (int i = 0; i < n; i++) {
+    Velox::EntityID node = Velox_GetSoftBodyNode(world, blob, i);
+    float x, y, rot;
+    Velox_GetPosition(world, node, &x, &y, &rot);
+    DrawCircle(x, y, 8.0f);
+}
+```
+
 ---
 
 ## 🎮 Visualizer Demos
@@ -134,6 +179,10 @@ Launch `VeloxVisualizer.exe` and select a scene from the dropdown.
 | **Convex Polygons & Motors Sandbox** | OBB + polygon SAT, rotating motor platforms |
 | **Chain Shapes Showcase** | One-sided chain floor; circles and boxes rest on sinusoidal terrain |
 | **Raycast Queries Showcase** | Live raycast with hit normals and entity detection |
+| **Revolute & Prismatic & Gear & Pulley Showcase** | Visualizes hinges with motors/limits, slider guides, gear drives, and linked pulley cords |
+| **CCD vs Tunneling Showcase** | Hyper-speed bullets fired at a thin wall, demonstrating zero tunneling |
+| **Sleeping & Activation Showcase** | Pile of boxes deactivating (turning gray) when settled and waking up on impact |
+| **Soft Body Showcase** | Blob bodies (area-preservation) and ShapeMatched elastic bodies interacting with rigid geometry |
 
 ### Controls
 - **Dropdown** — switch scene

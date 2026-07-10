@@ -155,7 +155,6 @@ namespace Velox {
                 component->EntityDestroyed(entity);
             }
 
-            m_signatures[entity].clear();
             m_availableEntities.push(entity);
             m_livingEntityCount--;
         }
@@ -215,10 +214,8 @@ namespace Velox {
             assert(m_componentTypes.find(typeName) != m_componentTypes.end() && "Component not registered before use.");
             return std::static_pointer_cast<ComponentArray<T>>(m_componentArrays[typeName]);
         }
-
         static const EntityID MAX_ENTITIES = 10000; ///< Upper bound on simultaneously live entities.
         std::queue<EntityID> m_availableEntities;    ///< Free list of recyclable entity IDs.
-        std::array<std::vector<ComponentTypeID>, MAX_ENTITIES> m_signatures; ///< Reserved for future signature-based queries.
         uint32_t m_livingEntityCount = 0;            ///< Number of entities currently allocated.
 
         std::unordered_map<const char*, ComponentTypeID> m_componentTypes;             ///< Registered component type IDs, keyed by RTTI name.

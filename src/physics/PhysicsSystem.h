@@ -74,40 +74,51 @@ namespace Velox {
         void ApplyRules(Real dt);       ///< Apply force fields, oscillators, and rotation motors.
         void Integrate(Real dt);         ///< Predict positions via semi-implicit Euler integration.
         void SolveConstraints(Real dt);  ///< Broadphase + narrowphase collision and joint solving.
+        void SolveRevoluteJoints(Real dt); ///< Solve revolute hinge constraints.
+        void SolvePrismaticJoints(Real dt); ///< Solve prismatic slider constraints.
+        void SolveGearJoints(Real dt);   ///< Solve gear coupling constraints.
+        void SolvePulleyJoints(Real dt); ///< Solve pulley rope constraints.
+        void SolveSoftBodies(Real dt);   ///< Solve soft body constraints.
+        void SolveSoftBodyArea(EntityID id, SoftBodyComponent& softBody, Real dt);
+        void SolveSoftBodyShapeMatch(EntityID id, SoftBodyComponent& softBody, Real dt);
         void DeriveVelocities(Real dt);  ///< Derive corrected velocities from position deltas.
         void ResolveVelocities(Real dt); ///< Apply impulse-based restitution and friction.
 
         std::shared_ptr<EntityManager> m_entityManager;
         Vec2 m_gravity = Vec2(0.0f, 0.0f); ///< Global directional gravity vector (world units/s²).
         std::vector<ContactInfo> m_contacts; ///< Contact manifold accumulated per sub-step.
+        std::vector<std::pair<EntityID, EntityID>> m_candidatePairs; ///< Cache for unique broadphase pairs.
 
         /**
-         * @brief Uniform spatial hash grid for broadphase collision culling.
-         *
-         * Divides world space into fixed-size cells and hashes cell coordinates
-         * to reduce average collision pair complexity from O(N²) to O(N).
+         * @brief Flat 2D grid for broadphase collision culling (cache-friendly, zero-allocation).
          */
-        struct SpatialGrid {
-            static const int CELL_SIZE = 60; ///< Grid cell size in world units.
-            std::unordered_map<int, std::vector<EntityID>> cells;
+        struct FlatGrid {
+            static constexpr int CELL_SIZE   = 60;
+            static constexpr int GRID_W      = 1280 / CELL_SIZE + 2; // 23 cells wide
+            static constexpr int GRID_H      = 720  / CELL_SIZE + 2; // 14 cells tall
+            static constexpr int MAX_PER_CELL = 64;
 
-            void Clear() { cells.clear(); }
+            std::array<std::array<EntityID, MAX_PER_CELL>, GRID_W * GRID_H> cells;
+            std::array<int, GRID_W * GRID_H> counts;
 
-            /// Compute a stable hash for a 2D grid cell coordinate pair.
-            int GetHash(int x, int y) {
-                return (x * 73856093) ^ (y * 19349663);
+            void Clear() {
+                counts.fill(0);
             }
 
-            /// Insert entity into all cells overlapping its AABB [min, max].
             void Insert(EntityID id, const Vec2& min, const Vec2& max) {
-                int startX = (int)std::floor(min.x / CELL_SIZE);
-                int endX   = (int)std::floor(max.x / CELL_SIZE);
-                int startY = (int)std::floor(min.y / CELL_SIZE);
-                int endY   = (int)std::floor(max.y / CELL_SIZE);
+                int startX = std::max(0, (int)std::floor(min.x / CELL_SIZE));
+                int endX   = std::min(GRID_W - 1, (int)std::floor(max.x / CELL_SIZE));
+                int startY = std::max(0, (int)std::floor(min.y / CELL_SIZE));
+                int endY   = std::min(GRID_H - 1, (int)std::floor(max.y / CELL_SIZE));
 
-                for (int x = startX; x <= endX; ++x)
-                    for (int y = startY; y <= endY; ++y)
-                        cells[GetHash(x, y)].push_back(id);
+                for (int x = startX; x <= endX; ++x) {
+                    for (int y = startY; y <= endY; ++y) {
+                        int idx = y * GRID_W + x;
+                        if (counts[idx] < MAX_PER_CELL) {
+                            cells[idx][counts[idx]++] = id;
+                        }
+                    }
+                }
             }
         } m_grid;
     };

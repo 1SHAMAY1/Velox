@@ -8,6 +8,7 @@
 #include <velox/VeloxAPI.h>
 #include "../core/World.h"
 #include "../physics/Components.h"
+#include <iostream>
 
 using namespace Velox;
 
@@ -51,6 +52,14 @@ extern "C" {
         }
     }
 
+    bool Velox_IsSleeping(VeloxWorld* world, EntityID entity) {
+        auto& em = reinterpret_cast<World*>(world)->GetEntityManager();
+        if (em.HasComponent<RigidBodyComponent>(entity)) {
+            return em.GetComponent<RigidBodyComponent>(entity).IsSleeping;
+        }
+        return false;
+    }
+
     void Velox_AddRigidBody(VeloxWorld* world, EntityID entity, float mass, bool isStatic) {
         RigidBodyComponent rb;
         rb.Mass = mass;
@@ -75,6 +84,7 @@ extern "C" {
 
     void Velox_AddRotation(VeloxWorld* world, EntityID entity, float speed, int direction, int mode) {
         if (!world) return;
+        (void)mode;
         reinterpret_cast<World*>(world)->GetEntityManager().AddComponent(entity, Velox::RotationComponent{
             speed, 
             (Velox::RotationDirection)direction
@@ -131,6 +141,11 @@ extern "C" {
             auto& mc = em.GetComponent<MovementComponent>(entity);
             mc.Velocity = {x, y};
         }
+        if (em.HasComponent<RigidBodyComponent>(entity)) {
+            auto& rb = em.GetComponent<RigidBodyComponent>(entity);
+            rb.IsSleeping = false;
+            rb.SleepTimer = 0.0f;
+        }
     }
 
     void Velox_SetAngularVelocity(VeloxWorld* world, EntityID entity, float angularVelocity) {
@@ -138,6 +153,11 @@ extern "C" {
         if (em.HasComponent<MovementComponent>(entity)) {
             auto& mc = em.GetComponent<MovementComponent>(entity);
             mc.AngularVelocity = angularVelocity;
+        }
+        if (em.HasComponent<RigidBodyComponent>(entity)) {
+            auto& rb = em.GetComponent<RigidBodyComponent>(entity);
+            rb.IsSleeping = false;
+            rb.SleepTimer = 0.0f;
         }
     }
 
@@ -320,4 +340,305 @@ extern "C" {
         return false;
     }
 
+    void Velox_AddRevoluteJoint(VeloxWorld* world, Velox::EntityID entityA, Velox::EntityID entityB, float anchorAX, float anchorAY, float anchorBX, float anchorBY, float compliance, bool limitsEnabled, float lowerAngle, float upperAngle, bool enableMotor, float motorSpeed, float maxMotorTorque) {
+        if (!world) return;
+        auto id = reinterpret_cast<World*>(world)->GetEntityManager().CreateEntity();
+        
+        Velox::RevoluteJointComponent rjc;
+        rjc.EntityA = entityA;
+        rjc.EntityB = entityB;
+        rjc.LocalAnchorA = {anchorAX, anchorAY};
+        rjc.LocalAnchorB = {anchorBX, anchorBY};
+        rjc.Compliance = compliance;
+        rjc.IsActive = true;
+        rjc.LimitsEnabled = limitsEnabled;
+        rjc.LowerAngle = lowerAngle;
+        rjc.UpperAngle = upperAngle;
+        rjc.EnableMotor = enableMotor;
+        rjc.MotorSpeed = motorSpeed;
+        rjc.MaxMotorTorque = maxMotorTorque;
+        
+        reinterpret_cast<World*>(world)->GetEntityManager().AddComponent(id, rjc);
+    }
+
+    void Velox_AddPrismaticJoint(VeloxWorld* world, Velox::EntityID entityA, Velox::EntityID entityB, float anchorAX, float anchorAY, float anchorBX, float anchorBY, float axisAX, float axisAY, float compliance, bool limitsEnabled, float minTranslation, float maxTranslation, bool enableMotor, float motorSpeed, float maxMotorForce) {
+        if (!world) return;
+        auto id = reinterpret_cast<World*>(world)->GetEntityManager().CreateEntity();
+        
+        Velox::PrismaticJointComponent pjc;
+        pjc.EntityA = entityA;
+        pjc.EntityB = entityB;
+        pjc.LocalAnchorA = {anchorAX, anchorAY};
+        pjc.LocalAnchorB = {anchorBX, anchorBY};
+        pjc.LocalAxisA = {axisAX, axisAY};
+        pjc.Compliance = compliance;
+        pjc.IsActive = true;
+        pjc.LimitsEnabled = limitsEnabled;
+        pjc.MinTranslation = minTranslation;
+        pjc.MaxTranslation = maxTranslation;
+        pjc.EnableMotor = enableMotor;
+        pjc.MotorSpeed = motorSpeed;
+        pjc.MaxMotorForce = maxMotorForce;
+        
+        reinterpret_cast<World*>(world)->GetEntityManager().AddComponent(id, pjc);
+    }
+
+    void Velox_AddGearJoint(VeloxWorld* world, Velox::EntityID entityA, Velox::EntityID entityB, float gearRatio, float compliance) {
+        if (!world) return;
+        auto id = reinterpret_cast<World*>(world)->GetEntityManager().CreateEntity();
+        
+        Velox::GearJointComponent gjc;
+        gjc.EntityA = entityA;
+        gjc.EntityB = entityB;
+        gjc.GearRatio = gearRatio;
+        gjc.Compliance = compliance;
+        gjc.IsActive = true;
+        
+        reinterpret_cast<World*>(world)->GetEntityManager().AddComponent(id, gjc);
+    }
+
+    void Velox_AddPulleyJoint(VeloxWorld* world, Velox::EntityID entityA, Velox::EntityID entityB, float groundAX, float groundAY, float groundBX, float groundBY, float anchorAX, float anchorAY, float anchorBX, float anchorBY, float ratio, float totalLength, float compliance) {
+        if (!world) return;
+        auto id = reinterpret_cast<World*>(world)->GetEntityManager().CreateEntity();
+        
+        Velox::PulleyJointComponent pjc;
+        pjc.EntityA = entityA;
+        pjc.EntityB = entityB;
+        pjc.GroundAnchorA = {groundAX, groundAY};
+        pjc.GroundAnchorB = {groundBX, groundBY};
+        pjc.LocalAnchorA = {anchorAX, anchorAY};
+        pjc.LocalAnchorB = {anchorBX, anchorBY};
+        pjc.Ratio = ratio;
+        pjc.TotalLength = totalLength;
+        pjc.Compliance = compliance;
+        pjc.IsActive = true;
+        
+        reinterpret_cast<World*>(world)->GetEntityManager().AddComponent(id, pjc);
+    }
+
+    void Velox_SetColliderGroupId(VeloxWorld* world, Velox::EntityID entity, int groupId) {
+        if (!world) return;
+        auto& em = reinterpret_cast<World*>(world)->GetEntityManager();
+        if (em.HasComponent<ColliderComponent>(entity)) {
+            em.GetComponent<ColliderComponent>(entity).GroupId = groupId;
+        }
+    }
+
+    Velox::EntityID Velox_CreateSoftBodyBlob(VeloxWorld* world, float cx, float cy, float radius, int nodeCount, float compliance, float jointCompliance, float nodeRadius) {
+        if (!world || nodeCount < 3) return 0;
+        auto& em = reinterpret_cast<World*>(world)->GetEntityManager();
+
+        static int nextGroupId = 1000;
+        int groupId = nextGroupId++;
+
+        std::vector<Velox::EntityID> nodes;
+        nodes.reserve(nodeCount);
+
+        float nodeMass = 1.0f / nodeCount;
+
+        for (int i = 0; i < nodeCount; ++i) {
+            float angle = (i * 2.0f * 3.14159265f) / nodeCount;
+            float nx = cx + radius * cosf(angle);
+            float ny = cy + radius * sinf(angle);
+
+            auto node = em.CreateEntity();
+            em.AddComponent(node, Velox::TransformComponent{{nx, ny}, 0.0f});
+            em.AddComponent(node, Velox::RigidBodyComponent{nodeMass, 1.0f / nodeMass, 0.01f, 100.0f, false});
+            em.GetComponent<RigidBodyComponent>(node).AllowSleep = false;
+            em.AddComponent(node, Velox::MovementComponent{});
+            
+            Velox::ColliderComponent col;
+            col.Type = Velox::ColliderType::Circle;
+            col.CenterOffset = {0.0f, 0.0f};
+            col.IsSensor = false;
+            col.GroupId = groupId;
+            col.Data.Radius = nodeRadius;
+            col.Data.BoxHalfExtents = {nodeRadius, nodeRadius};
+            em.AddComponent(node, col);
+
+            em.AddComponent(node, Velox::PhysicalMaterialComponent{0.4f, 0.2f, 0.2f});
+            nodes.push_back(node);
+        }
+
+        for (int i = 0; i < nodeCount; ++i) {
+            int next = (i + 1) % nodeCount;
+            auto jointEntity = em.CreateEntity();
+            
+            float angle1 = (i * 2.0f * 3.14159265f) / nodeCount;
+            float angle2 = (next * 2.0f * 3.14159265f) / nodeCount;
+            float dx = radius * (cosf(angle1) - cosf(angle2));
+            float dy = radius * (sinf(angle1) - sinf(angle2));
+            float restDist = sqrtf(dx*dx + dy*dy);
+
+            Velox::JointComponent jc;
+            jc.EntityA = nodes[i];
+            jc.EntityB = nodes[next];
+            jc.LocalAnchorA = {0.0f, 0.0f};
+            jc.LocalAnchorB = {0.0f, 0.0f};
+            jc.TargetDistance = restDist;
+            jc.Compliance = jointCompliance;
+            jc.Damping = 0.5f;
+            jc.IsActive = true;
+            em.AddComponent(jointEntity, jc);
+        }
+
+        for (int i = 0; i < nodeCount; ++i) {
+            // Connect to 3 opposite nodes to form a robust triangulation network
+            int oppBase = (i + nodeCount / 2) % nodeCount;
+            int offsets[] = {-1, 0, 1};
+            
+            for (int offset : offsets) {
+                int opp = (oppBase + offset + nodeCount) % nodeCount;
+                if (i >= opp) continue; // Avoid duplicate double-joints
+
+                float angle1 = (i * 2.0f * 3.14159265f) / nodeCount;
+                float angle2 = (opp * 2.0f * 3.14159265f) / nodeCount;
+                float dx = radius * (cosf(angle1) - cosf(angle2));
+                float dy = radius * (sinf(angle1) - sinf(angle2));
+                float restDist = sqrtf(dx*dx + dy*dy);
+
+                auto jointEntity = em.CreateEntity();
+                Velox::JointComponent jc;
+                jc.EntityA = nodes[i];
+                jc.EntityB = nodes[opp];
+                jc.LocalAnchorA = {0.0f, 0.0f};
+                jc.LocalAnchorB = {0.0f, 0.0f};
+                jc.TargetDistance = restDist;
+                jc.Compliance = jointCompliance * 4.0f; // Sightly softer compliance for diagonals
+                jc.Damping = 0.5f;
+                jc.IsActive = true;
+                em.AddComponent(jointEntity, jc);
+            }
+        }
+
+        auto softBodyEntity = em.CreateEntity();
+        Velox::SoftBodyComponent sbc;
+        sbc.Type = Velox::SoftBodyType::Blob;
+        sbc.Nodes = nodes;
+        
+        Real signedArea = 0.0f;
+        int n = nodes.size();
+        for (int i = 0; i < n; ++i) {
+            int next = (i + 1) % n;
+            auto& transCurr = em.GetComponent<TransformComponent>(nodes[i]);
+            auto& transNext = em.GetComponent<TransformComponent>(nodes[next]);
+            signedArea += (transCurr.Position.x * transNext.Position.y - transNext.Position.x * transCurr.Position.y);
+        }
+        sbc.TargetArea = 0.5f * signedArea;
+        sbc.AreaCompliance = compliance;
+        
+        em.AddComponent(softBodyEntity, sbc);
+        std::cout << "[SOFT BODY] Created Blob Soft Body Entity " << softBodyEntity 
+                  << " with " << nodeCount << " nodes at center (" << cx << ", " << cy 
+                  << "), radius: " << radius 
+                  << ", Target Area: " << sbc.TargetArea 
+                  << ", Compliance: " << compliance 
+                  << ", Group ID: " << groupId << std::endl;
+        return softBodyEntity;
+    }
+
+    Velox::EntityID Velox_CreateSoftBodyShapeMatched(VeloxWorld* world, float cx, float cy, float* verticesX, float* verticesY, int vertexCount, float stiffness, float nodeRadius) {
+        if (!world || vertexCount < 3) return 0;
+        auto& em = reinterpret_cast<World*>(world)->GetEntityManager();
+
+        static int nextGroupId = 2000;
+        int groupId = nextGroupId++;
+
+        std::vector<Velox::EntityID> nodes;
+        nodes.reserve(vertexCount);
+
+        std::vector<Velox::Vec2> restPositions;
+        restPositions.reserve(vertexCount);
+
+        float restCx = 0.0f, restCy = 0.0f;
+        for (int i = 0; i < vertexCount; ++i) {
+            restCx += verticesX[i];
+            restCy += verticesY[i];
+        }
+        restCx /= vertexCount;
+        restCy /= vertexCount;
+
+        float nodeMass = 1.0f / vertexCount;
+
+        for (int i = 0; i < vertexCount; ++i) {
+            float rx = verticesX[i] - restCx;
+            float ry = verticesY[i] - restCy;
+            restPositions.push_back({rx, ry});
+
+            float nx = cx + rx;
+            float ny = cy + ry;
+
+            auto node = em.CreateEntity();
+            em.AddComponent(node, Velox::TransformComponent{{nx, ny}, 0.0f});
+            em.AddComponent(node, Velox::RigidBodyComponent{nodeMass, 1.0f / nodeMass, 0.01f, 100.0f, false});
+            em.GetComponent<RigidBodyComponent>(node).AllowSleep = false;
+            em.AddComponent(node, Velox::MovementComponent{});
+
+            Velox::ColliderComponent col;
+            col.Type = Velox::ColliderType::Circle;
+            col.CenterOffset = {0.0f, 0.0f};
+            col.IsSensor = false;
+            col.GroupId = groupId;
+            col.Data.Radius = nodeRadius;
+            col.Data.BoxHalfExtents = {nodeRadius, nodeRadius};
+            em.AddComponent(node, col);
+
+            em.AddComponent(node, Velox::PhysicalMaterialComponent{0.4f, 0.2f, 0.2f});
+            nodes.push_back(node);
+        }
+
+        for (int i = 0; i < vertexCount; ++i) {
+            int next = (i + 1) % vertexCount;
+            float dx = restPositions[i].x - restPositions[next].x;
+            float dy = restPositions[i].y - restPositions[next].y;
+            float restDist = sqrtf(dx*dx + dy*dy);
+
+            auto jointEntity = em.CreateEntity();
+            Velox::JointComponent jc;
+            jc.EntityA = nodes[i];
+            jc.EntityB = nodes[next];
+            jc.LocalAnchorA = {0.0f, 0.0f};
+            jc.LocalAnchorB = {0.0f, 0.0f};
+            jc.TargetDistance = restDist;
+            jc.Compliance = 0.01f;
+            jc.Damping = 0.5f;
+            jc.IsActive = true;
+            em.AddComponent(jointEntity, jc);
+        }
+
+        auto softBodyEntity = em.CreateEntity();
+        Velox::SoftBodyComponent sbc;
+        sbc.Type = Velox::SoftBodyType::ShapeMatched;
+        sbc.Nodes = nodes;
+        sbc.RestPositions = restPositions;
+        sbc.Stiffness = stiffness;
+
+        em.AddComponent(softBodyEntity, sbc);
+        std::cout << "[SOFT BODY] Created Shape-Matched Soft Body Entity " << softBodyEntity 
+                  << " with " << vertexCount << " nodes at center (" << cx << ", " << cy 
+                  << "), Stiffness: " << stiffness 
+                  << ", Group ID: " << groupId << std::endl;
+        return softBodyEntity;
+    }
+
+    int Velox_GetSoftBodyNodeCount(VeloxWorld* world, Velox::EntityID softBodyEntity) {
+        if (!world) return 0;
+        auto& em = reinterpret_cast<World*>(world)->GetEntityManager();
+        if (em.HasComponent<SoftBodyComponent>(softBodyEntity)) {
+            return em.GetComponent<SoftBodyComponent>(softBodyEntity).Nodes.size();
+        }
+        return 0;
+    }
+
+    Velox::EntityID Velox_GetSoftBodyNode(VeloxWorld* world, Velox::EntityID softBodyEntity, int nodeIndex) {
+        if (!world) return 0;
+        auto& em = reinterpret_cast<World*>(world)->GetEntityManager();
+        if (em.HasComponent<SoftBodyComponent>(softBodyEntity)) {
+            auto& sb = em.GetComponent<SoftBodyComponent>(softBodyEntity);
+            if (nodeIndex >= 0 && nodeIndex < (int)sb.Nodes.size()) {
+                return sb.Nodes[nodeIndex];
+            }
+        }
+        return 0;
+    }
 }
