@@ -8,9 +8,7 @@
  * They define *what* an entity is; systems define *what it does*.
  */
 
-#include "../math/Vec3.h"
 #include "../math/Vec2.h"
-#include "../math/Quat.h"
 #include <vector>
 
 namespace Velox {
@@ -63,6 +61,11 @@ namespace Velox {
         Real Inertia       = 1.0f;
         Real InverseInertia = 1.0f;
         bool IsStatic      = false;
+
+        // --- Sleep State ---
+        bool  IsSleeping   = false;
+        Real  SleepTimer   = 0.0f;   ///< Seconds spent below velocity threshold
+        bool  AllowSleep   = true;   ///< Per-body opt-out
     };
 
     /// Surface material properties used during impulse resolution.
@@ -97,6 +100,7 @@ namespace Velox {
         ColliderType Type;
         Vec2 CenterOffset;   ///< Shape offset from the entity's transform position.
         bool IsSensor = false; ///< Sensors detect overlaps but do not generate response forces.
+        int GroupId = -1;      ///< -1 means collide with everything. If >= 0, entities with matching GroupId ignore collisions with each other.
 
         struct {
             Vec2 BoxHalfExtents; ///< Half-width and half-height for Box colliders.
@@ -185,6 +189,80 @@ namespace Velox {
         Real  MotorSpeed      = 0.0f;  ///< Target angular speed (rad/s). Positive = CCW.
         Real  MaxMotorTorque  = 0.0f;  ///< Maximum torque the motor can apply per step.
         Real  MotorAngle      = 0.0f;  ///< Accumulated driven angle (rad) — internal state.
+    };
+
+    struct RevoluteJointComponent {
+        EntityID EntityA;
+        EntityID EntityB;
+        Vec2 LocalAnchorA;      ///< Hinge point relative to A's local origin.
+        Vec2 LocalAnchorB;      ///< Hinge point relative to B's local origin.
+        Real Compliance  = 0.0f;
+        bool IsActive    = true;
+
+        // Limits
+        bool LimitsEnabled = false;
+        Real LowerAngle    = -1.57f;   // rad
+        Real UpperAngle    =  1.57f;   // rad
+
+        // Motor
+        bool EnableMotor    = false;
+        Real MotorSpeed     = 0.0f;
+        Real MaxMotorTorque = 0.0f;
+    };
+
+    struct PrismaticJointComponent {
+        EntityID EntityA;
+        EntityID EntityB;
+        Vec2 LocalAnchorA;
+        Vec2 LocalAnchorB;
+        Vec2 LocalAxisA;
+        Real Compliance  = 0.0f;
+        bool IsActive    = true;
+        bool LimitsEnabled    = false;
+        Real MinTranslation   = -100.0f;
+        Real MaxTranslation   =  100.0f;
+        bool EnableMotor   = false;
+        Real MotorSpeed    = 0.0f;
+        Real MaxMotorForce = 0.0f;
+    };
+
+    struct GearJointComponent {
+        EntityID EntityA;
+        EntityID EntityB;
+        Real GearRatio = 1.0f;
+        Real Compliance = 0.0f;
+        bool IsActive   = true;
+    };
+
+    struct PulleyJointComponent {
+        EntityID EntityA;
+        EntityID EntityB;
+        Vec2 GroundAnchorA;
+        Vec2 GroundAnchorB;
+        Vec2 LocalAnchorA;
+        Vec2 LocalAnchorB;
+        Real Ratio     = 1.0f;
+        Real TotalLength;
+        Real Compliance = 0.0f;
+        bool IsActive   = true;
+    };
+
+    enum class SoftBodyType {
+        Blob,          ///< Closed loop utilizing Area Preservation.
+        ShapeMatched   ///< Elastic body utilizing Shape Matching to preserve a rest shape.
+    };
+
+    struct SoftBodyComponent {
+        SoftBodyType Type;
+        std::vector<EntityID> Nodes;   ///< Boundary/mesh node entities.
+        
+        // Area Preservation parameters (for Blob type)
+        Real TargetArea     = 0.0f;    
+        Real AreaCompliance = 0.05f;   
+        
+        // Shape Matching parameters (for ShapeMatched type)
+        std::vector<Vec2> RestPositions; ///< Local rest offsets relative to rest center of mass.
+        Real Stiffness      = 0.1f;      ///< Shape-matching stiffness constraint in [0, 1].
     };
 
 } // namespace Velox

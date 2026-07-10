@@ -93,6 +93,7 @@ extern "C" {
     /// Reads `entity`'s current position and rotation into the output pointers.
     /// Leaves the outputs untouched if `entity` has no TransformComponent.
     VELOX_API void Velox_GetPosition(VeloxWorld* world, Velox::EntityID entity, float* x, float* y, float* rotation);
+    VELOX_API bool Velox_IsSleeping(VeloxWorld* world, Velox::EntityID entity);
 
     // --- Gravity Configuration ---
 
@@ -104,6 +105,11 @@ extern "C" {
     /// Creates an XPBD distance joint holding `entityA` and `entityB` at `targetDistance` apart,
     /// anchored at the given local offsets. `compliance` of 0 is rigid; higher values act springy.
     VELOX_API void Velox_AddDistanceJoint(VeloxWorld* world, Velox::EntityID entityA, Velox::EntityID entityB, float anchorAX, float anchorAY, float anchorBX, float anchorBY, float targetDistance, float compliance);
+
+    VELOX_API void Velox_AddRevoluteJoint(VeloxWorld* world, Velox::EntityID entityA, Velox::EntityID entityB, float anchorAX, float anchorAY, float anchorBX, float anchorBY, float compliance, bool limitsEnabled, float lowerAngle, float upperAngle, bool enableMotor, float motorSpeed, float maxMotorTorque);
+    VELOX_API void Velox_AddPrismaticJoint(VeloxWorld* world, Velox::EntityID entityA, Velox::EntityID entityB, float anchorAX, float anchorAY, float anchorBX, float anchorBY, float axisAX, float axisAY, float compliance, bool limitsEnabled, float minTranslation, float maxTranslation, bool enableMotor, float motorSpeed, float maxMotorForce);
+    VELOX_API void Velox_AddGearJoint(VeloxWorld* world, Velox::EntityID entityA, Velox::EntityID entityB, float gearRatio, float compliance);
+    VELOX_API void Velox_AddPulleyJoint(VeloxWorld* world, Velox::EntityID entityA, Velox::EntityID entityB, float groundAX, float groundAY, float groundBX, float groundBY, float anchorAX, float anchorAY, float anchorBX, float anchorBY, float ratio, float totalLength, float compliance);
 
     // --- Sensor Configuration ---
 
@@ -121,5 +127,12 @@ extern "C" {
     /// On hit, fills the output pointers (any of which may be null) and returns true.
     /// `fraction` is normalized to [0, 1] over maxDistance.
     VELOX_API bool Velox_Raycast(VeloxWorld* world, float startX, float startY, float dirX, float dirY, float maxDistance, float* hitX, float* hitY, float* normalX, float* normalY, float* fraction, Velox::EntityID* hitEntity);
+
+    // --- Soft Body System ---
+    VELOX_API void Velox_SetColliderGroupId(VeloxWorld* world, Velox::EntityID entity, int groupId);
+    VELOX_API Velox::EntityID Velox_CreateSoftBodyBlob(VeloxWorld* world, float cx, float cy, float radius, int nodeCount, float compliance, float jointCompliance, float nodeRadius);
+    VELOX_API Velox::EntityID Velox_CreateSoftBodyShapeMatched(VeloxWorld* world, float cx, float cy, float* verticesX, float* verticesY, int vertexCount, float stiffness, float nodeRadius);
+    VELOX_API int Velox_GetSoftBodyNodeCount(VeloxWorld* world, Velox::EntityID softBodyEntity);
+    VELOX_API Velox::EntityID Velox_GetSoftBodyNode(VeloxWorld* world, Velox::EntityID softBodyEntity, int nodeIndex);
 
 }

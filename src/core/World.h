@@ -34,6 +34,11 @@ namespace Velox {
             m_entityManager->RegisterComponent<ProjectileComponent>();
             m_entityManager->RegisterComponent<PhysicalMaterialComponent>();
             m_entityManager->RegisterComponent<JointComponent>();
+            m_entityManager->RegisterComponent<RevoluteJointComponent>();
+            m_entityManager->RegisterComponent<PrismaticJointComponent>();
+            m_entityManager->RegisterComponent<GearJointComponent>();
+            m_entityManager->RegisterComponent<PulleyJointComponent>();
+            m_entityManager->RegisterComponent<SoftBodyComponent>();
             
             m_physicsSystem = std::make_unique<PhysicsSystem>(m_entityManager);
         }

@@ -31,3 +31,7 @@ endif()
 if(WIN32)
     target_compile_definitions(Velox PRIVATE VELOX_EXPORTS)
 endif()
+
+if(VELOX_SIMD)
+    target_compile_definitions(Velox PRIVATE VELOX_SIMD)
+endif()
