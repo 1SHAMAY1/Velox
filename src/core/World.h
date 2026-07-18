@@ -17,7 +17,7 @@
 namespace Velox {
 
     /// Owns an entity manager + physics system pair representing one simulated scene.
-    class World {
+    class VELOX_API World {
     public:
         /// Constructs an empty world with zero gravity and all built-in components registered.
         World() : m_gravity(0.0f, 0.0f) {
