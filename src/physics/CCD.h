@@ -18,4 +18,9 @@ namespace Velox {
     TOIResult SweptAABB(Vec2 minA, Vec2 maxA, Vec2 vA,
                         Vec2 minB, Vec2 maxB, Vec2 vB,
                         Real subDt);
+
+    /// Swept Circle vs Box TOI solve.
+    TOIResult SweptCircleBox(Vec2 circleP, Vec2 circleV, Real radius,
+                             Vec2 boxP, Vec2 boxV, Vec2 boxHalfExtents, Real boxRotation,
+                             Real subDt, Vec2& outNormal);
 }

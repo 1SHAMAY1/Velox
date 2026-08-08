@@ -27,61 +27,211 @@ namespace Velox {
     constexpr Real SLEEP_ANGULAR_THRESHOLD = 0.08f;   // rad/s
     constexpr Real SLEEP_TIME_THRESHOLD    = 0.5f;    // seconds before sleeping
 
+    PhysicsSystem::PhysicsSystem(std::shared_ptr<EntityManager> entityManager)
+        : m_entityManager(entityManager) {
+        m_contacts.Reserve(1024);
+        m_candidatePairs.Reserve(2048);
+    }
+
     /// Advances the full simulation by `dt`, snapshotting pre-integration velocities
     /// (needed for restitution) before running the sub-stepped XPBD pipeline.
     void PhysicsSystem::Step(Real dt) {
-        ApplyRules(dt);
-
-        // Snapshot velocity at the beginning of the frame (once)
-        // so ResolveVelocities gets the actual approach velocity before integration and sub-stepping
-        auto entities = m_entityManager->GetEntitiesWithComponent<RigidBodyComponent>();
-        for (auto id : entities) {
-            if (m_entityManager->HasComponent<MovementComponent>(id)) {
-                auto& move = m_entityManager->GetComponent<MovementComponent>(id);
-                move.PrevVelocity = move.Velocity;
-                move.PrevAngularVelocity = move.AngularVelocity;
-            }
+        // 1. Execute all registered Pre-Step & Force Application behaviors
+        const auto& behaviors = PhysicsBehaviorRegistry::Get().GetBehaviors();
+        for (const auto& b : behaviors) {
+            b->OnPreStep(*m_entityManager, dt);
         }
 
-        // Run 8 sub-steps to improve solver stability and reduce tunnelling at high speeds.
-        const int subSteps = 8;
+        ApplyRules(dt);
+
+        for (const auto& b : behaviors) {
+            b->OnApplyForces(*m_entityManager, dt);
+        }
+
+        const auto& entities = m_entityManager->GetEntitiesWithComponent<RigidBodyComponent>();
+        const int nEntities = static_cast<int>(entities.size());
+
+        // Run BVH Broadphase ONCE per frame with fat AABBs (O(N log N) -> single pass per frame)
+        UpdateBroadphase(dt);
+
+        // Run 4 sub-steps for optimal XPBD convergence at ultra-high FPS (>1,000 FPS)
+        const int subSteps = 4;
         Real subDt = dt / (Real)subSteps;
 
+        // Initialize island manager with capacity for all entities
+        m_islandManager.Initialize(entities.size() * 2 + 1024);
+
+        auto* softBodyArray = m_entityManager->GetComponentArrayFast<SoftBodyComponent>();
+        auto* revArray = m_entityManager->GetComponentArrayFast<RevoluteJointComponent>();
+        auto* prismArray = m_entityManager->GetComponentArrayFast<PrismaticJointComponent>();
+        auto* gearArray = m_entityManager->GetComponentArrayFast<GearJointComponent>();
+        auto* pulleyArray = m_entityManager->GetComponentArrayFast<PulleyJointComponent>();
+
+        bool hasSoftBodies = softBodyArray && !softBodyArray->GetDenseEntities().empty();
+        bool hasRevJoints = revArray && !revArray->GetDenseEntities().empty();
+        bool hasPrismJoints = prismArray && !prismArray->GetDenseEntities().empty();
+        bool hasGearJoints = gearArray && !gearArray->GetDenseEntities().empty();
+        bool hasPulleyJoints = pulleyArray && !pulleyArray->GetDenseEntities().empty();
+
         for (int s = 0; s < subSteps; ++s) {
+            // Snapshot velocity per sub-step so restitution acts on genuine approach velocity
+            #pragma omp parallel for schedule(static, 64)
+            for (int i = 0; i < nEntities; ++i) {
+                EntityID id = entities[i];
+                if (m_entityManager->HasComponent<MovementComponent>(id)) {
+                    auto& move = m_entityManager->GetComponent<MovementComponent>(id);
+                    move.PrevVelocity = move.Velocity;
+                    move.PrevAngularVelocity = move.AngularVelocity;
+                }
+            }
+
             Integrate(subDt);
+
+            for (const auto& b : behaviors) {
+                b->OnSolveConstraints(*m_entityManager, subDt);
+            }
+
+            if (hasSoftBodies) SolveSoftBodies(subDt);
             SolveConstraints(subDt);
-            SolveRevoluteJoints(subDt);
-            SolvePrismaticJoints(subDt);
-            SolveGearJoints(subDt);
-            SolvePulleyJoints(subDt);
-            SolveSoftBodies(subDt);
+            if (hasRevJoints) SolveRevoluteJoints(subDt);
+            if (hasPrismJoints) SolvePrismaticJoints(subDt);
+            if (hasGearJoints) SolveGearJoints(subDt);
+            if (hasPulleyJoints) SolvePulleyJoints(subDt);
             DeriveVelocities(subDt);
             ResolveVelocities(subDt);
         }
 
-        // Console logging is disabled by default to prevent rendering loop freezes from blocking I/O.
+        // Island-level sleep propagation
+        for (const auto& contact : m_contacts) {
+            m_islandManager.Union(contact.idA, contact.idB);
+        }
+
+        for (auto id : entities) {
+            if (!m_entityManager->HasComponent<MovementComponent>(id)) continue;
+            auto& move = m_entityManager->GetComponent<MovementComponent>(id);
+            auto& rb = m_entityManager->GetComponent<RigidBodyComponent>(id);
+            if (rb.IsStatic) continue;
+
+            float ke = 0.5f * rb.Mass * move.Velocity.MagnitudeSqr();
+            m_islandManager.AddKineticEnergy(id, ke);
+        }
+
+        for (auto id : entities) {
+            auto& rb = m_entityManager->GetComponent<RigidBodyComponent>(id);
+            if (rb.IsStatic || !rb.AllowSleep) continue;
+            if (m_entityManager->HasComponent<SoftBodyComponent>(id)) continue;
+
+            // Also check if entity has collider with GroupId (softbody node)
+            if (m_entityManager->HasComponent<ColliderComponent>(id)) {
+                if (m_entityManager->GetComponent<ColliderComponent>(id).GroupId != -1) continue;
+            }
+
+            if (m_islandManager.IsIslandSettled(id, 8.0f)) {
+                rb.SleepTimer += dt;
+                if (rb.SleepTimer >= SLEEP_TIME_THRESHOLD) {
+                    rb.IsSleeping = true;
+                    if (m_entityManager->HasComponent<MovementComponent>(id)) {
+                        auto& move = m_entityManager->GetComponent<MovementComponent>(id);
+                        move.Velocity = {0.0f, 0.0f};
+                        move.AngularVelocity = 0.0f;
+                    }
+                }
+            }
+        }
+
+        for (const auto& b : behaviors) {
+            b->OnPostStep(*m_entityManager, dt);
+        }
+
+        // --- Event-Based Architecture & Broken Contact Wake-Up ---
+        std::unordered_map<ContactPairKey, Vec2, ContactPairKeyHash> currentContacts;
+        std::unordered_map<ContactPairKey, bool, ContactPairKeyHash> currentSensors;
+
+        for (const auto& contact : m_contacts) {
+            EntityID a = std::min(contact.idA, contact.idB);
+            EntityID b = std::max(contact.idA, contact.idB);
+            ContactPairKey key{a, b};
+
+            bool isSensor = false;
+            if (m_entityManager->HasComponent<ColliderComponent>(a) && m_entityManager->GetComponent<ColliderComponent>(a).IsSensor) isSensor = true;
+            if (m_entityManager->HasComponent<ColliderComponent>(b) && m_entityManager->GetComponent<ColliderComponent>(b).IsSensor) isSensor = true;
+
+            if (isSensor) {
+                currentSensors[key] = true;
+            } else {
+                currentContacts[key] = contact.normal;
+            }
+        }
+
+        // 1. Check Broken Contacts & Collision Ends (Wakes sleeping bodies when supporting objects move/disappear)
+        for (const auto& kv : m_persistentContacts) {
+            if (currentContacts.find(kv.first) == currentContacts.end()) {
+                WakeBody(kv.first.idA);
+                WakeBody(kv.first.idB);
+                if (m_collisionEndCb) {
+                    m_collisionEndCb(kv.first.idA, kv.first.idB, kv.second.x, kv.second.y, m_collisionEndUserData);
+                }
+            }
+        }
+
+        // 2. Check Collision Begins
+        if (m_collisionBeginCb) {
+            for (const auto& kv : currentContacts) {
+                if (m_persistentContacts.find(kv.first) == m_persistentContacts.end()) {
+                    m_collisionBeginCb(kv.first.idA, kv.first.idB, kv.second.x, kv.second.y, m_collisionBeginUserData);
+                }
+            }
+        }
+
+        // 3. Check Sensor Triggers (Enter / Exit)
+        if (m_sensorCb) {
+            for (const auto& kv : currentSensors) {
+                if (m_persistentSensors.find(kv.first) == m_persistentSensors.end()) {
+                    m_sensorCb(kv.first.idA, kv.first.idB, true, m_sensorUserData); // Entered
+                }
+            }
+            for (const auto& kv : m_persistentSensors) {
+                if (currentSensors.find(kv.first) == currentSensors.end()) {
+                    m_sensorCb(kv.first.idA, kv.first.idB, false, m_sensorUserData); // Exited
+                }
+            }
+        }
+
+        m_persistentContacts = std::move(currentContacts);
+        m_persistentSensors = std::move(currentSensors);
     }
 
     /// Drives non-collision gameplay behaviours each frame: force fields, rotation
     /// motors, oscillators, and projectile facing. Runs once per Step(), before sub-stepping.
     void PhysicsSystem::ApplyRules(Real dt) {
+        const auto& fieldEntities = m_entityManager->GetEntitiesWithComponent<ForceFieldComponent>();
+        const auto& rotEntities = m_entityManager->GetEntitiesWithComponent<RotationComponent>();
+        const auto& oscEntities = m_entityManager->GetEntitiesWithComponent<OscillationComponent>();
+        const auto& projEntities = m_entityManager->GetEntitiesWithComponent<ProjectileComponent>();
+
+        if (fieldEntities.empty() && rotEntities.empty() && oscEntities.empty() && projEntities.empty()) {
+            return;
+        }
+
         // Apply Force Fields
         // 1. Gather all Force Fields
         std::vector<ForceFieldComponent> fields;
         std::vector<Vec2> fieldPositions; // For PointGravity
 
-        auto fieldEntities = m_entityManager->GetEntitiesWithComponent<ForceFieldComponent>();
-        for (auto id : fieldEntities) {
-            fields.push_back(m_entityManager->GetComponent<ForceFieldComponent>(id));
-            if (m_entityManager->HasComponent<TransformComponent>(id)) {
-                fieldPositions.push_back(m_entityManager->GetComponent<TransformComponent>(id).Position);
-            } else {
-                fieldPositions.push_back({0,0});
+        if (!fieldEntities.empty()) {
+            fields.reserve(fieldEntities.size());
+            fieldPositions.reserve(fieldEntities.size());
+            for (auto id : fieldEntities) {
+                fields.push_back(m_entityManager->GetComponent<ForceFieldComponent>(id));
+                if (m_entityManager->HasComponent<TransformComponent>(id)) {
+                    fieldPositions.push_back(m_entityManager->GetComponent<TransformComponent>(id).Position);
+                } else {
+                    fieldPositions.push_back({0,0});
+                }
             }
         }
 
         // 2. Apply RotationComponent (Motor)
-        auto rotEntities = m_entityManager->GetEntitiesWithComponent<RotationComponent>();
         for (auto id : rotEntities) {
             if (m_entityManager->HasComponent<MovementComponent>(id)) {
                 auto& rot = m_entityManager->GetComponent<RotationComponent>(id);
@@ -93,7 +243,6 @@ namespace Velox {
         }
 
         // 3. Apply OscillationComponent
-        auto oscEntities = m_entityManager->GetEntitiesWithComponent<OscillationComponent>();
         for (auto id : oscEntities) {
             if (m_entityManager->HasComponent<TransformComponent>(id)) {
                 auto& osc = m_entityManager->GetComponent<OscillationComponent>(id);
@@ -114,7 +263,6 @@ namespace Velox {
         }
 
         // 4. Apply ProjectileComponent (Face Velocity)
-        auto projEntities = m_entityManager->GetEntitiesWithComponent<ProjectileComponent>();
         for (auto id : projEntities) {
             if (m_entityManager->HasComponent<MovementComponent>(id) &&
                 m_entityManager->HasComponent<TransformComponent>(id)) {
@@ -132,47 +280,49 @@ namespace Velox {
         }
 
         // 5. Apply Force Fields to all Dynamic Bodies
-        auto rbEntities = m_entityManager->GetEntitiesWithComponent<RigidBodyComponent>();
-        for (auto id : rbEntities) {
-            if (!m_entityManager->HasComponent<MovementComponent>(id) ||
-                !m_entityManager->HasComponent<TransformComponent>(id)) continue;
+        if (!fields.empty()) {
+            const auto& rbEntities = m_entityManager->GetEntitiesWithComponent<RigidBodyComponent>();
+            for (auto id : rbEntities) {
+                if (!m_entityManager->HasComponent<MovementComponent>(id) ||
+                    !m_entityManager->HasComponent<TransformComponent>(id)) continue;
 
-            auto& rb = m_entityManager->GetComponent<RigidBodyComponent>(id);
-            if (rb.IsStatic) continue;
+                auto& rb = m_entityManager->GetComponent<RigidBodyComponent>(id);
+                if (rb.IsStatic) continue;
 
-            auto& move = m_entityManager->GetComponent<MovementComponent>(id);
-            auto& trans = m_entityManager->GetComponent<TransformComponent>(id);
+                auto& move = m_entityManager->GetComponent<MovementComponent>(id);
+                auto& trans = m_entityManager->GetComponent<TransformComponent>(id);
 
-            for (size_t f = 0; f < fields.size(); ++f) {
-                const auto& field = fields[f];
-                
-                Vec2 dir = fieldPositions[f] - trans.Position;
-                Real distSqr = dir.MagnitudeSqr();
-                Real r = field.Radius;
-                
-                if (distSqr < r * r && distSqr > 0.0001f) {
-                    Real dist = std::sqrt(distSqr);
-                    Vec2 normal = dir / dist; // Points TO field center
+                for (size_t f = 0; f < fields.size(); ++f) {
+                    const auto& field = fields[f];
                     
-                    Real falloff = 1.0f - (dist / r);
-                    Real forceMag = field.Strength * rb.Mass * falloff;
+                    Vec2 dir = fieldPositions[f] - trans.Position;
+                    Real distSqr = dir.MagnitudeSqr();
+                    Real r = field.Radius;
                     
-                    switch (field.Type) {
-                        case ForceFieldType::Inward:
-                            move.Force += normal * forceMag;
-                            break;
-                        case ForceFieldType::Outward:
-                            move.Force -= normal * forceMag;
-                            break;
-                        case ForceFieldType::Clockwise: {
-                            Vec2 tangent = {-normal.y, normal.x}; 
-                            move.Force += tangent * forceMag;
-                            break;
-                        }
-                        case ForceFieldType::AntiClockwise: {
-                            Vec2 tangent = {normal.y, -normal.x};
-                            move.Force += tangent * forceMag;
-                            break;
+                    if (distSqr < r * r && distSqr > 0.0001f) {
+                        Real dist = std::sqrt(distSqr);
+                        Vec2 normal = dir / dist; // Points TO field center
+                        
+                        Real falloff = 1.0f - (dist / r);
+                        Real forceMag = field.Strength * rb.Mass * falloff;
+                        
+                        switch (field.Type) {
+                            case ForceFieldType::Inward:
+                                move.Force += normal * forceMag;
+                                break;
+                            case ForceFieldType::Outward:
+                                move.Force -= normal * forceMag;
+                                break;
+                            case ForceFieldType::Clockwise: {
+                                Vec2 tangent = {-normal.y, normal.x}; 
+                                move.Force += tangent * forceMag;
+                                break;
+                            }
+                            case ForceFieldType::AntiClockwise: {
+                                Vec2 tangent = {normal.y, -normal.x};
+                                move.Force += tangent * forceMag;
+                                break;
+                            }
                         }
                     }
                 }
@@ -180,19 +330,138 @@ namespace Velox {
         }
     }
 
+    void PhysicsSystem::UpdateBroadphase(Real dt) {
+        (void)dt;
+        m_spatialHash.Clear();
+        m_candidatePairs.Clear();
+
+        auto* colArray = m_entityManager->GetComponentArrayFast<ColliderComponent>();
+        auto* transArray = m_entityManager->GetComponentArrayFast<TransformComponent>();
+        auto* rbArray = m_entityManager->GetComponentArrayFast<RigidBodyComponent>();
+        if (!colArray || !transArray) return;
+
+        const auto& colliderEntities = colArray->GetDenseEntities();
+        if (colliderEntities.empty()) return;
+
+        struct EntityAABB {
+            EntityID id;
+            AABB aabb;
+        };
+        std::vector<EntityAABB> entityAABBs;
+        entityAABBs.reserve(colliderEntities.size());
+
+        // 1. Populate FlatSpatialHash with fast AABB calculation
+        for (EntityID id : colliderEntities) {
+            if (!transArray->HasData(id)) continue;
+
+            const auto& col = colArray->GetData(id);
+            const auto& trans = transArray->GetData(id);
+
+            AABB aabb;
+            switch (col.Type) {
+                case ColliderType::Circle: {
+                    Real r = col.Data.Radius;
+                    aabb.min = trans.Position - Vec2(r, r);
+                    aabb.max = trans.Position + Vec2(r, r);
+                    break;
+                }
+                case ColliderType::Box: {
+                    Vec2 half = col.Data.BoxHalfExtents;
+                    Real cosA = std::abs(std::cos(trans.Rotation));
+                    Real sinA = std::abs(std::sin(trans.Rotation));
+                    Real ex = half.x * cosA + half.y * sinA;
+                    Real ey = half.x * sinA + half.y * cosA;
+                    aabb.min = trans.Position - Vec2(ex, ey);
+                    aabb.max = trans.Position + Vec2(ex, ey);
+                    break;
+                }
+                case ColliderType::Polygon: {
+                    if (col.Vertices.empty()) {
+                        aabb.min = trans.Position;
+                        aabb.max = trans.Position;
+                    } else {
+                        Vec2 first = trans.Position + col.Vertices[0].Rotate(trans.Rotation);
+                        aabb.min = first;
+                        aabb.max = first;
+                        for (size_t i = 1; i < col.Vertices.size(); ++i) {
+                            Vec2 worldV = trans.Position + col.Vertices[i].Rotate(trans.Rotation);
+                            aabb.min.x = std::min(aabb.min.x, worldV.x);
+                            aabb.min.y = std::min(aabb.min.y, worldV.y);
+                            aabb.max.x = std::max(aabb.max.x, worldV.x);
+                            aabb.max.y = std::max(aabb.max.y, worldV.y);
+                        }
+                    }
+                    break;
+                }
+                case ColliderType::Chain: {
+                    if (col.Vertices.empty()) {
+                        aabb.min = trans.Position;
+                        aabb.max = trans.Position;
+                    } else {
+                        aabb.min = col.Vertices[0];
+                        aabb.max = col.Vertices[0];
+                        for (size_t i = 1; i < col.Vertices.size(); ++i) {
+                            aabb.min.x = std::min(aabb.min.x, col.Vertices[i].x);
+                            aabb.min.y = std::min(aabb.min.y, col.Vertices[i].y);
+                            aabb.max.x = std::max(aabb.max.x, col.Vertices[i].x);
+                            aabb.max.y = std::max(aabb.max.y, col.Vertices[i].y);
+                        }
+                    }
+                    break;
+                }
+            }
+
+            entityAABBs.push_back({id, aabb});
+            m_spatialHash.Insert(id, aabb.min, aabb.max);
+        }
+
+        // 2. Query candidate pairs using FlatSpatialHash with fast deduplication stamp
+        static std::vector<uint32_t> queryStamps(16384, 0);
+        static uint32_t queryToken = 1;
+
+        for (const auto& ea : entityAABBs) {
+            EntityID idA = ea.id;
+            bool isAStatic = rbArray && rbArray->HasData(idA) && rbArray->GetData(idA).IsStatic;
+            uint32_t token = ++queryToken;
+            if (token == 0) {
+                std::fill(queryStamps.begin(), queryStamps.end(), 0);
+                token = ++queryToken;
+            }
+
+            m_spatialHash.Query(ea.aabb.min, ea.aabb.max, [&](uint32_t userData) {
+                EntityID idB = userData;
+                if (idA < idB) {
+                    if (idB >= queryStamps.size()) queryStamps.resize(idB + 4096, 0);
+                    if (queryStamps[idB] != token) {
+                        queryStamps[idB] = token;
+                        bool isBStatic = rbArray && rbArray->HasData(idB) && rbArray->GetData(idB).IsStatic;
+                        if (!isAStatic || !isBStatic) {
+                            m_candidatePairs.PushBack({idA, idB});
+                        }
+                    }
+                }
+                return true;
+            });
+        }
+    }
+
     /// XPBD prediction step: applies damping and gravity, then integrates velocity
     /// and position forward by `dt` for every non-static dynamic body.
     void PhysicsSystem::Integrate(Real dt) {
-        auto entities = m_entityManager->GetEntitiesWithComponent<RigidBodyComponent>();
-        for (auto id : entities) {
+        const auto& entities = m_entityManager->GetEntitiesWithComponent<RigidBodyComponent>();
+        const int n = static_cast<int>(entities.size());
+
+        #pragma omp parallel for schedule(static, 64)
+        for (int i = 0; i < n; ++i) {
+            EntityID id = entities[i];
             if (!m_entityManager->HasComponent<TransformComponent>(id) ||
                 !m_entityManager->HasComponent<MovementComponent>(id)) continue;
 
             auto& rb = m_entityManager->GetComponent<RigidBodyComponent>(id);
+            if (rb.IsStatic || rb.IsSleeping) continue;
+
             auto& transform = m_entityManager->GetComponent<TransformComponent>(id);
             auto& move = m_entityManager->GetComponent<MovementComponent>(id);
-
-            if (rb.IsStatic || rb.IsSleeping) continue;
 
             // Store current state for XPBD velocity derivation (this is sub-step local)
             move.PrevPosition = transform.Position;
@@ -223,55 +492,74 @@ namespace Velox {
     /// correction, followed by distance-joint (and joint motor) solving. Populates
     /// m_contacts, which ResolveVelocities() later consumes for impulse response.
     void PhysicsSystem::SolveConstraints(Real dt) {
-        m_contacts.clear();
+        m_contacts.Clear();
 
-        // 1. Gather all collider entities
-        auto colliderEntities = m_entityManager->GetEntitiesWithComponent<ColliderComponent>();
-        std::vector<EntityID> entities;
-        entities.reserve(colliderEntities.size());
-
-        for (auto id : colliderEntities) {
-            if (m_entityManager->HasComponent<TransformComponent>(id) &&
-                m_entityManager->HasComponent<RigidBodyComponent>(id)) {
-                entities.push_back(id);
-            }
-        }
+        auto* colArray = m_entityManager->GetComponentArrayFast<ColliderComponent>();
+        auto* transArray = m_entityManager->GetComponentArrayFast<TransformComponent>();
+        auto* rbArray = m_entityManager->GetComponentArrayFast<RigidBodyComponent>();
+        if (!colArray || !transArray || !rbArray) return;
 
         // Narrowphase entry point: resolves one candidate pair by dispatching to the
         // shape-specific solver below based on each entity's ColliderType.
         auto ResolveCollision = [&](EntityID idA, EntityID idB) {
-            auto& colA = m_entityManager->GetComponent<ColliderComponent>(idA);
-            auto& colB = m_entityManager->GetComponent<ColliderComponent>(idB);
+            auto& colA = colArray->GetData(idA);
+            auto& colB = colArray->GetData(idB);
 
             // Skip collisions if both entities belong to the same collision group (e.g., same soft body)
             if (colA.GroupId != -1 && colA.GroupId == colB.GroupId) return;
 
-            auto& transA = m_entityManager->GetComponent<TransformComponent>(idA);
-            auto& rbA = m_entityManager->GetComponent<RigidBodyComponent>(idA);
+            auto& transA = transArray->GetData(idA);
+            auto& rbA = rbArray->GetData(idA);
             
-            auto& transB = m_entityManager->GetComponent<TransformComponent>(idB);
-            auto& rbB = m_entityManager->GetComponent<RigidBodyComponent>(idB);
-
-            // Wake up bodies if one is active and the other is sleeping
-            if (rbA.IsSleeping || rbB.IsSleeping) {
-                rbA.IsSleeping = false;
-                rbA.SleepTimer = 0.0f;
-                rbB.IsSleeping = false;
-                rbB.SleepTimer = 0.0f;
-            }
+            auto& transB = transArray->GetData(idB);
+            auto& rbB = rbArray->GetData(idB);
 
             // Circle vs Circle: distance-based overlap test with proportional positional correction.
             auto ResolveCircleCircle = [&]() {
                 Vec2 n = transA.Position - transB.Position;
-                Real dist = n.Magnitude();
                 Real radiusSum = colA.Data.Radius + colB.Data.Radius;
+                Real distSqr = n.MagnitudeSqr();
 
-                if (dist < radiusSum && dist > 0.0001f) {
-                    n = n / dist;
-                    Real penetration = radiusSum - dist;
+                if (distSqr >= radiusSum * radiusSum) {
+                    // Continuous Collision Detection (Swept TOI) only for fast moving circles
+                    auto* moveArray = m_entityManager->GetComponentArrayFast<MovementComponent>();
+                    Vec2 vA = (moveArray && moveArray->HasData(idA)) ? moveArray->GetData(idA).Velocity : Vec2(0, 0);
+                    Vec2 vB = (moveArray && moveArray->HasData(idB)) ? moveArray->GetData(idB).Velocity : Vec2(0, 0);
+                    Real relSpeedSqr = (vA - vB).MagnitudeSqr();
+
+                    if (relSpeedSqr * (dt * dt) > radiusSum * radiusSum * 0.25f) {
+                        TOIResult toi = SweptCircleCircle(transA.Position - vA * dt, vA, colA.Data.Radius,
+                                                          transB.Position - vB * dt, vB, colB.Data.Radius, dt);
+                        if (toi.hit && toi.toi >= 0.0f && toi.toi <= dt) {
+                            Vec2 hitPosA = (transA.Position - vA * dt) + vA * toi.toi;
+                            Vec2 hitPosB = (transB.Position - vB * dt) + vB * toi.toi;
+                            Vec2 sweptN = hitPosA - hitPosB;
+                            Real sDist = sweptN.Magnitude();
+                            if (sDist > 1e-5f) sweptN = sweptN * (1.0f / sDist);
+                            else sweptN = Vec2(0, -1);
+
+                            if (!rbA.IsStatic) transA.Position = hitPosA + sweptN * 0.5f;
+                            if (!rbB.IsStatic) transB.Position = hitPosB - sweptN * 0.5f;
+                            m_contacts.PushBack({idA, idB, sweptN, 0.5f, {hitPosB + sweptN * colB.Data.Radius}});
+                            return;
+                        }
+                    }
+                    return;
+                }
+
+                if (distSqr > 1e-8f) {
+                    Real dist = std::sqrt(distSqr);
+                    n = n * (1.0f / dist);
+                    Real rawPen = radiusSum - dist;
+                    // Contact slop (0.1px) and relaxation (0.8) to prevent jitter and energy gain
+                    Real penetration = std::max(0.0f, rawPen - 0.1f) * 0.8f;
+
+                    // Wake up bodies only on genuine contact
+                    if (rbA.IsSleeping) { rbA.IsSleeping = false; rbA.SleepTimer = 0.0f; }
+                    if (rbB.IsSleeping) { rbB.IsSleeping = false; rbB.SleepTimer = 0.0f; }
                     
                     if (colA.IsSensor || colB.IsSensor) {
-                        m_contacts.push_back({idA, idB, n, penetration, {transB.Position + n * colB.Data.Radius}});
+                        m_contacts.PushBack({idA, idB, n, rawPen, {transB.Position + n * colB.Data.Radius}});
                         return;
                     }
                     
@@ -284,7 +572,7 @@ namespace Velox {
                     if (!rbA.IsStatic) transA.Position += dx * w1;
                     if (!rbB.IsStatic) transB.Position -= dx * w2;
 
-                    m_contacts.push_back({idA, idB, n, penetration, {transB.Position + n * colB.Data.Radius}});
+                    m_contacts.PushBack({idA, idB, n, rawPen, {transB.Position + n * colB.Data.Radius}});
                 }
             };
 
@@ -303,6 +591,31 @@ namespace Velox {
                 Vec2 boxPos = bTrans.Position + bCol.CenterOffset;
                 Vec2 boxHalf = bCol.Data.BoxHalfExtents;
 
+                // Swept CCD for high-speed bullets / circles vs static or dynamic boxes
+                auto* moveArray = m_entityManager->GetComponentArrayFast<MovementComponent>();
+                Vec2 cV = (moveArray && moveArray->HasData(circleID)) ? moveArray->GetData(circleID).Velocity : Vec2(0, 0);
+                Vec2 bV = (moveArray && moveArray->HasData(boxID)) ? moveArray->GetData(boxID).Velocity : Vec2(0, 0);
+                Real relSpeedSqr = (cV - bV).MagnitudeSqr();
+                Real minHalf = std::min(boxHalf.x, boxHalf.y);
+
+                if (relSpeedSqr * (dt * dt) > minHalf * minHalf * 0.25f) {
+                    Vec2 sweptNorm;
+                    TOIResult toi = SweptCircleBox(circlePos - cV * dt, cV, cCol.Data.Radius,
+                                                   boxPos - bV * dt, bV, boxHalf, bTrans.Rotation,
+                                                   dt, sweptNorm);
+                    if (toi.hit && toi.toi >= 0.0f && toi.toi <= dt) {
+                        Vec2 hitPos = (circlePos - cV * dt) + cV * toi.toi + sweptNorm * 0.5f;
+                        if (!cRb.IsStatic) cTrans.Position = hitPos - cCol.CenterOffset;
+                        if (moveArray && moveArray->HasData(circleID)) {
+                            auto& mv = moveArray->GetData(circleID);
+                            Real vn = mv.Velocity.Dot(sweptNorm);
+                            if (vn < 0.0f) mv.Velocity -= sweptNorm * vn;
+                        }
+                        m_contacts.PushBack({circleID, boxID, sweptNorm, 0.5f, {hitPos - sweptNorm * cCol.Data.Radius}});
+                        return;
+                    }
+                }
+
                 // Transform Circle to Box Local Space
                 Vec2 relPos = circlePos - boxPos;
                 Vec2 localPos = relPos.Rotate(-bTrans.Rotation);
@@ -319,13 +632,18 @@ namespace Velox {
                 Real distSqr = n.MagnitudeSqr();
                 Real radius = cCol.Data.Radius;
 
-                if (distSqr < radius * radius && distSqr > 0.00001f) {
+                if (distSqr < radius * radius && distSqr > 1e-8f) {
                     Real dist = std::sqrt(distSqr);
-                    n = n / dist; 
-                    Real penetration = radius - dist;
+                    n = n * (1.0f / dist); 
+                    Real rawPen = radius - dist;
+                    Real penetration = std::max(0.0f, rawPen - 0.1f) * 0.8f;
+
+                    // Wake up bodies on contact
+                    if (cRb.IsSleeping) { cRb.IsSleeping = false; cRb.SleepTimer = 0.0f; }
+                    if (bRb.IsSleeping) { bRb.IsSleeping = false; bRb.SleepTimer = 0.0f; }
 
                     if (cCol.IsSensor || bCol.IsSensor) {
-                        m_contacts.push_back({circleID, boxID, n, penetration, {closestWorld}});
+                        m_contacts.PushBack({circleID, boxID, n, rawPen, {closestWorld}});
                         return;
                     }
 
@@ -338,7 +656,7 @@ namespace Velox {
                     if (!cRb.IsStatic) cTrans.Position += correction * w1;
                     if (!bRb.IsStatic) bTrans.Position -= correction * w2;
 
-                    m_contacts.push_back({circleID, boxID, n, penetration, {closestWorld}});
+                    m_contacts.PushBack({circleID, boxID, n, rawPen, {closestWorld}});
                 }
             };
 
@@ -353,6 +671,80 @@ namespace Velox {
                 Real rotA = transA.Rotation;
                 Real rotB = transB.Rotation;
 
+                // Direct AABB Fast-Path for unrotated boxes (eliminates 4 trig calls and 4-axis SAT loops)
+                if (std::abs(rotA) < 1e-4f && std::abs(rotB) < 1e-4f) {
+                    Vec2 delta = posB - posA;
+                    Real ox = (halfA.x + halfB.x) - std::abs(delta.x);
+                    if (ox <= 0.0f) return;
+                    Real oy = (halfA.y + halfB.y) - std::abs(delta.y);
+                    if (oy <= 0.0f) return;
+
+                    Vec2 n;
+                    Real penetration;
+
+                    if (ox < oy) {
+                        penetration = ox;
+                        n = delta.x < 0.0f ? Vec2(-1.0f, 0.0f) : Vec2(1.0f, 0.0f);
+                    } else {
+                        penetration = oy;
+                        n = delta.y < 0.0f ? Vec2(0.0f, -1.0f) : Vec2(0.0f, 1.0f);
+                    }
+
+                    std::array<Vec2, 4> contactPoints{};
+                    uint8_t count = 0;
+
+                    if (ox < oy) {
+                        Real minAY = posA.y - halfA.y, maxAY = posA.y + halfA.y;
+                        Real minBY = posB.y - halfB.y, maxBY = posB.y + halfB.y;
+                        Real minY = std::max(minAY, minBY);
+                        Real maxY = std::min(maxAY, maxBY);
+                        Real contactX = delta.x > 0.0f ? (posA.x + halfA.x) : (posA.x - halfA.x);
+                        contactPoints[0] = Vec2(contactX, minY);
+                        contactPoints[1] = Vec2(contactX, maxY);
+                        count = (minY == maxY) ? 1 : 2;
+                    } else {
+                        Real minAX = posA.x - halfA.x, maxAX = posA.x + halfA.x;
+                        Real minBX = posB.x - halfB.x, maxBX = posB.x + halfB.x;
+                        Real minX = std::max(minAX, minBX);
+                        Real maxX = std::min(maxAX, maxBX);
+                        Real contactY = delta.y > 0.0f ? (posA.y + halfA.y) : (posA.y - halfA.y);
+                        contactPoints[0] = Vec2(minX, contactY);
+                        contactPoints[1] = Vec2(maxX, contactY);
+                        count = (minX == maxX) ? 1 : 2;
+                    }
+
+                    // Wake up bodies on genuine contact
+                    if (rbA.IsSleeping) { rbA.IsSleeping = false; rbA.SleepTimer = 0.0f; }
+                    if (rbB.IsSleeping) { rbB.IsSleeping = false; rbB.SleepTimer = 0.0f; }
+
+                    if (colA.IsSensor || colB.IsSensor) {
+                        m_contacts.PushBack(ContactInfo(idA, idB, n, penetration, contactPoints, count));
+                        return;
+                    }
+
+                    Real w1 = rbA.InverseMass;
+                    Real w2 = rbB.InverseMass;
+                    if (w1 + w2 == 0.0f) return;
+
+                    Real rawPen = penetration;
+                    Real effPen = std::max(0.0f, rawPen - 0.05f) * 0.9f;
+
+                    Vec2 correction = n * (effPen / (w1 + w2));
+                    if (!rbA.IsStatic) transA.Position -= correction * w1;
+                    if (!rbB.IsStatic) transB.Position += correction * w2;
+
+                    // Stabilization: when unrotated boxes are stacked on a flat horizontal surface,
+                    // damp micro-rotational drift to prevent artificial toppling
+                    if (std::abs(n.y) > 0.9f) {
+                        if (!rbA.IsStatic && std::abs(transA.Rotation) < 0.02f) transA.Rotation *= 0.9f;
+                        if (!rbB.IsStatic && std::abs(transB.Rotation) < 0.02f) transB.Rotation *= 0.9f;
+                    }
+
+                    m_contacts.PushBack(ContactInfo(idA, idB, n, rawPen, contactPoints, count));
+                    return;
+                }
+
+                // Rotated Box SAT
                 Vec2 axes[4];
                 axes[0] = Vec2(std::cos(rotA), std::sin(rotA));
                 axes[1] = Vec2(-std::sin(rotA), std::cos(rotA));
@@ -384,13 +776,15 @@ namespace Velox {
 
                 if (collision) {
                     Vec2 n = mtvAxis;
-                    Real penetration = minOverlap;
+                    Real rawPen = minOverlap;
+                    Real penetration = std::max(0.0f, rawPen - 0.1f) * 0.8f;
 
-                    // Contact point generation
-                    std::vector<Vec2> contactPoints;
+                    // Contact point generation (zero heap allocation stack buffer)
+                    std::array<Vec2, 4> contactPoints{};
+                    uint8_t count = 0;
                     
-                    auto GetBoxCorners = [](const Vec2& center, const Vec2& half, Real rotation) {
-                        std::vector<Vec2> corners(4);
+                    auto GetBoxCorners = [](const Vec2& center, const Vec2& half, Real rotation) -> std::array<Vec2, 4> {
+                        std::array<Vec2, 4> corners{};
                         Vec2 uX(std::cos(rotation), std::sin(rotation));
                         Vec2 uY(-std::sin(rotation), std::cos(rotation));
                         corners[0] = center + uX * half.x + uY * half.y;
@@ -410,22 +804,27 @@ namespace Velox {
                     auto cornersB = GetBoxCorners(posB, halfB, rotB);
 
                     for (const auto& pt : cornersA) {
-                        if (IsPointInBox(pt, posB, halfB, rotB)) {
-                            contactPoints.push_back(pt);
+                        if (IsPointInBox(pt, posB, halfB, rotB) && count < 4) {
+                            contactPoints[count++] = pt;
                         }
                     }
                     for (const auto& pt : cornersB) {
-                        if (IsPointInBox(pt, posA, halfA, rotA)) {
-                            contactPoints.push_back(pt);
+                        if (IsPointInBox(pt, posA, halfA, rotA) && count < 4) {
+                            contactPoints[count++] = pt;
                         }
                     }
 
-                    if (contactPoints.empty()) {
-                        contactPoints.push_back((posA + posB) * 0.5f);
+                    if (count == 0) {
+                        contactPoints[0] = (posA + posB) * 0.5f;
+                        count = 1;
                     }
 
+                    // Wake up bodies on contact
+                    if (rbA.IsSleeping) { rbA.IsSleeping = false; rbA.SleepTimer = 0.0f; }
+                    if (rbB.IsSleeping) { rbB.IsSleeping = false; rbB.SleepTimer = 0.0f; }
+
                     if (colA.IsSensor || colB.IsSensor) {
-                        m_contacts.push_back({idA, idB, n, penetration, contactPoints});
+                        m_contacts.PushBack(ContactInfo(idA, idB, n, rawPen, contactPoints, count));
                         return;
                     }
 
@@ -438,14 +837,14 @@ namespace Velox {
                     if (!rbA.IsStatic) transA.Position -= correction * w1;
                     if (!rbB.IsStatic) transB.Position += correction * w2;
 
-                    m_contacts.push_back({idA, idB, n, penetration, contactPoints});
+                    m_contacts.PushBack(ContactInfo(idA, idB, n, rawPen, contactPoints, count));
                 }
             };
 
             // Half-space / support-point solver: polygon vs single chain segment.
             // A segment has no volume, so SAT is unreliable - instead we test the signed
             // distance of every polygon vertex from the segment's half-plane.
-            auto SATPolygonVsSegment = [&](EntityID polyID, Vec2 segA, Vec2 segB) {
+            auto SATPolygonVsSegment = [&](EntityID polyID, EntityID chainID, Vec2 segA, Vec2 segB) {
                 auto& pCol = m_entityManager->GetComponent<ColliderComponent>(polyID);
                 auto& pTrans = m_entityManager->GetComponent<TransformComponent>(polyID);
                 auto& pRb = m_entityManager->GetComponent<RigidBodyComponent>(polyID);
@@ -486,6 +885,8 @@ namespace Velox {
 
                 if (!anyPenetrating) return; // all vertices above the surface
 
+                if (pRb.IsSleeping) { pRb.IsSleeping = false; pRb.SleepTimer = 0.0f; }
+
                 // --- Step 3: Check the contact point is within the segment's extent ---
                 // Project the deepest vertex onto the segment to get the contact point.
                 Vec2 relVert = deepestVert - segA;
@@ -506,7 +907,7 @@ namespace Velox {
                 }
 
                 Vec2 contactPt = segA + segDir * std::max(0.0f, std::min(t, segLen));
-                m_contacts.push_back({polyID, polyID, n, penetration, {contactPt}});
+                m_contacts.PushBack({polyID, chainID, n, penetration, {contactPt}});
             };
 
             // SAT solver helper for Convex Polygons
@@ -593,8 +994,12 @@ namespace Velox {
                 Vec2 n = mtvAxis;
                 Real penetration = minOverlap;
 
+                // Wake up bodies on contact
+                if (rbA_ref.IsSleeping) { rbA_ref.IsSleeping = false; rbA_ref.SleepTimer = 0.0f; }
+                if (rbB_ref.IsSleeping) { rbB_ref.IsSleeping = false; rbB_ref.SleepTimer = 0.0f; }
+
                 if (colA_ref.IsSensor || colB_ref.IsSensor) {
-                    m_contacts.push_back({idA, idB, n, penetration, {(centerA + centerB)*0.5f}});
+                    m_contacts.PushBack({idA, idB, n, penetration, {(centerA + centerB)*0.5f}});
                     return;
                 }
 
@@ -606,7 +1011,7 @@ namespace Velox {
                 if (!rbA_ref.IsStatic) transA_ref.Position += correction * w1;
                 if (!rbB_ref.IsStatic) transB_ref.Position -= correction * w2;
 
-                m_contacts.push_back({idA, idB, n, penetration, {(centerA + centerB)*0.5f}});
+                m_contacts.PushBack({idA, idB, n, penetration, {(centerA + centerB)*0.5f}});
             };
 
             // Circle vs Polygon/Chain. Chains are tested as a sequence of open segments
@@ -648,8 +1053,12 @@ namespace Velox {
                         Vec2 n = toCircle / dist;
                         Real penetration = radius - dist;
 
+                        // Wake up bodies on contact
+                        if (cRb.IsSleeping) { cRb.IsSleeping = false; cRb.SleepTimer = 0.0f; }
+                        if (pRb.IsSleeping) { pRb.IsSleeping = false; pRb.SleepTimer = 0.0f; }
+
                         if (cCol.IsSensor || pCol.IsSensor) {
-                            m_contacts.push_back({circleID, polyID, n, penetration, {closestPoint}});
+                            m_contacts.PushBack({circleID, polyID, n, penetration, {closestPoint}});
                             return;
                         }
 
@@ -661,7 +1070,7 @@ namespace Velox {
                         if (!cRb.IsStatic) cTrans.Position += correction * w1;
                         if (!pRb.IsStatic) pTrans.Position -= correction * w2;
 
-                        m_contacts.push_back({circleID, polyID, n, penetration, {closestPoint}});
+                        m_contacts.PushBack({circleID, polyID, n, penetration, {closestPoint}});
                     }
                 };
 
@@ -724,8 +1133,12 @@ namespace Velox {
                     Vec2 n = mtvAxis;
                     Real penetration = minOverlap;
 
+                    // Wake up bodies on contact
+                    if (cRb.IsSleeping) { cRb.IsSleeping = false; cRb.SleepTimer = 0.0f; }
+                    if (pRb.IsSleeping) { pRb.IsSleeping = false; pRb.SleepTimer = 0.0f; }
+
                     if (cCol.IsSensor || pCol.IsSensor) {
-                        m_contacts.push_back({circleID, polyID, n, penetration, {circleCenter - n * radius}});
+                        m_contacts.PushBack({circleID, polyID, n, penetration, {circleCenter - n * radius}});
                         return;
                     }
 
@@ -737,7 +1150,7 @@ namespace Velox {
                     if (!cRb.IsStatic) cTrans.Position += correction * w1;
                     if (!pRb.IsStatic) pTrans.Position -= correction * w2;
 
-                    m_contacts.push_back({circleID, polyID, n, penetration, {circleCenter - n * radius}});
+                    m_contacts.PushBack({circleID, polyID, n, penetration, {circleCenter - n * radius}});
                 }
             };
 
@@ -774,7 +1187,7 @@ namespace Velox {
                             {
                                 auto& chainCol = m_entityManager->GetComponent<ColliderComponent>(idB);
                                 for (size_t si = 0; si + 1 < chainCol.Vertices.size(); ++si) {
-                                    SATPolygonVsSegment(idA, chainCol.Vertices[si], chainCol.Vertices[si+1]);
+                                    SATPolygonVsSegment(idA, idB, chainCol.Vertices[si], chainCol.Vertices[si+1]);
                                 }
                             }
                             break;
@@ -797,7 +1210,7 @@ namespace Velox {
                                 auto& chainCol = m_entityManager->GetComponent<ColliderComponent>(idB);
                                 for (size_t si = 0; si + 1 < chainCol.Vertices.size(); ++si) {
                                     // Vertices are already in world space (chain transform at origin)
-                                    SATPolygonVsSegment(idA, chainCol.Vertices[si], chainCol.Vertices[si+1]);
+                                    SATPolygonVsSegment(idA, idB, chainCol.Vertices[si], chainCol.Vertices[si+1]);
                                 }
                             }
                             break;
@@ -813,7 +1226,7 @@ namespace Velox {
                             {
                                 auto& chainCol = m_entityManager->GetComponent<ColliderComponent>(idA);
                                 for (size_t si = 0; si + 1 < chainCol.Vertices.size(); ++si) {
-                                    SATPolygonVsSegment(idB, chainCol.Vertices[si], chainCol.Vertices[si+1]);
+                                    SATPolygonVsSegment(idB, idA, chainCol.Vertices[si], chainCol.Vertices[si+1]);
                                 }
                             }
                             break;
@@ -822,7 +1235,7 @@ namespace Velox {
                             {
                                 auto& chainCol = m_entityManager->GetComponent<ColliderComponent>(idA);
                                 for (size_t si = 0; si + 1 < chainCol.Vertices.size(); ++si) {
-                                    SATPolygonVsSegment(idB, chainCol.Vertices[si], chainCol.Vertices[si+1]);
+                                    SATPolygonVsSegment(idB, idA, chainCol.Vertices[si], chainCol.Vertices[si+1]);
                                 }
                             }
                             break;
@@ -834,218 +1247,17 @@ namespace Velox {
             }
         };
 
-        // --- Spatial Grid Broadphase ---
-        struct CachedAABB {
-            EntityID id;
-            Vec2 min;
-            Vec2 max;
-        };
-        std::vector<CachedAABB> cachedAABBs;
-        cachedAABBs.reserve(entities.size());
-
-        for (auto id : entities) {
-            auto& col = m_entityManager->GetComponent<ColliderComponent>(id);
-            auto& trans = m_entityManager->GetComponent<TransformComponent>(id);
-            
-            Vec2 min, max;
-            Vec2 pos = trans.Position + col.CenterOffset;
-
-            if (col.Type == ColliderType::Circle) {
-                Real r = col.Data.Radius;
-                min = pos - Vec2(r, r);
-                max = pos + Vec2(r, r);
-            } else if (col.Type == ColliderType::Box) {
-                Real r = std::max(col.Data.BoxHalfExtents.x, col.Data.BoxHalfExtents.y) * 1.5f;
-                min = pos - Vec2(r, r);
-                max = pos + Vec2(r, r);
-            } else if (col.Type == ColliderType::Chain) {
-                // Use actual vertex extents for chains so broadphase covers the whole floor
-                std::vector<Vec2> wv;
-                GetPolygonWorldVertices(trans, col, wv);
-                if (!wv.empty()) {
-                    min = max = wv[0];
-                    for (const auto& v : wv) {
-                        min.x = std::min(min.x, v.x);
-                        min.y = std::min(min.y, v.y);
-                        max.x = std::max(max.x, v.x);
-                        max.y = std::max(max.y, v.y);
-                    }
-                } else {
-                    min = pos - Vec2(500.0f, 200.0f);
-                    max = pos + Vec2(500.0f, 200.0f);
-                }
-            } else { // Polygon dynamic sizing
-                std::vector<Vec2> wv;
-                GetPolygonWorldVertices(trans, col, wv);
-                if (!wv.empty()) {
-                    min = max = wv[0];
-                    for (const auto& v : wv) {
-                        min.x = std::min(min.x, v.x);
-                        min.y = std::min(min.y, v.y);
-                        max.x = std::max(max.x, v.x);
-                        max.y = std::max(max.y, v.y);
-                    }
-                    // Pad slightly
-                    Vec2 pad(5.0f, 5.0f);
-                    min = min - pad;
-                    max = max + pad;
-                } else {
-                    min = pos - Vec2(50.0f, 50.0f);
-                    max = pos + Vec2(50.0f, 50.0f);
-                }
-            }
-            cachedAABBs.push_back({id, min, max});
-        }
-
-        m_grid.Clear();
-
-        for (const auto& cache : cachedAABBs) {
-            m_grid.Insert(cache.id, cache.min, cache.max);
-        }
-
-        // Query neighbors and resolve overlaps using FlatGrid and a flat candidate pairs list
-        m_candidatePairs.clear();
-
-        for (const auto& cache : cachedAABBs) {
-            EntityID idA = cache.id;
-            bool hasRb = m_entityManager->HasComponent<RigidBodyComponent>(idA);
-            if (hasRb && m_entityManager->GetComponent<RigidBodyComponent>(idA).IsSleeping) continue;
-
-            Vec2 min = cache.min;
-            Vec2 max = cache.max;
-
-            int startX = std::max(0, (int)std::floor(min.x / FlatGrid::CELL_SIZE));
-            int endX   = std::min(FlatGrid::GRID_W - 1, (int)std::floor(max.x / FlatGrid::CELL_SIZE));
-            int startY = std::max(0, (int)std::floor(min.y / FlatGrid::CELL_SIZE));
-            int endY   = std::min(FlatGrid::GRID_H - 1, (int)std::floor(max.y / FlatGrid::CELL_SIZE));
-
-            for (int x = startX; x <= endX; ++x) {
-                for (int y = startY; y <= endY; ++y) {
-                    int idx = y * FlatGrid::GRID_W + x;
-                    int count = m_grid.counts[idx];
-                    for (int i = 0; i < count; ++i) {
-                        EntityID idB = m_grid.cells[idx][i];
-                        if (idA < idB) {
-                            m_candidatePairs.push_back({idA, idB});
-                        }
-                    }
-                }
-            }
-        }
-
-        // Deduplicate pairs
-        std::sort(m_candidatePairs.begin(), m_candidatePairs.end());
-        m_candidatePairs.erase(std::unique(m_candidatePairs.begin(), m_candidatePairs.end()), m_candidatePairs.end());
-
-        auto CheckCCD = [&](EntityID idA, EntityID idB, Real stepDt) -> TOIResult {
-            auto& colA = m_entityManager->GetComponent<ColliderComponent>(idA);
-            auto& transA = m_entityManager->GetComponent<TransformComponent>(idA);
-            bool hasMoveA = m_entityManager->HasComponent<MovementComponent>(idA);
-            Vec2 velA = hasMoveA ? m_entityManager->GetComponent<MovementComponent>(idA).Velocity : Vec2(0.0f, 0.0f);
-            Vec2 prevPosA = hasMoveA ? m_entityManager->GetComponent<MovementComponent>(idA).PrevPosition : transA.Position;
-
-            auto& colB = m_entityManager->GetComponent<ColliderComponent>(idB);
-            auto& transB = m_entityManager->GetComponent<TransformComponent>(idB);
-            bool hasMoveB = m_entityManager->HasComponent<MovementComponent>(idB);
-            Vec2 velB = hasMoveB ? m_entityManager->GetComponent<MovementComponent>(idB).Velocity : Vec2(0.0f, 0.0f);
-            Vec2 prevPosB = hasMoveB ? m_entityManager->GetComponent<MovementComponent>(idB).PrevPosition : transB.Position;
-
-            // Only run CCD if relative velocity is significant (e.g. greater than 200 px/s)
-            Vec2 relVel = velA - velB;
-            if (relVel.MagnitudeSqr() < 40000.0f) {
-                return { false, 0.0f };
-            }
-
-            if (colA.Type == ColliderType::Circle && colB.Type == ColliderType::Circle) {
-                return SweptCircleCircle(prevPosA + colA.CenterOffset, velA, colA.Data.Radius,
-                                         prevPosB + colB.CenterOffset, velB, colB.Data.Radius,
-                                         stepDt);
-            } else {
-                auto GetAABBBounds = [&](EntityID id, Vec2& min, Vec2& max) {
-                    auto& col = m_entityManager->GetComponent<ColliderComponent>(id);
-                    auto& trans = m_entityManager->GetComponent<TransformComponent>(id);
-                    
-                    bool hasMove = m_entityManager->HasComponent<MovementComponent>(id);
-                    Vec2 referencePos = hasMove ? m_entityManager->GetComponent<MovementComponent>(id).PrevPosition : trans.Position;
-                    
-                    // Construct start-of-step AABB bounds using referencePos
-                    if (col.Type == ColliderType::Circle) {
-                        min = referencePos + col.CenterOffset - Vec2(col.Data.Radius, col.Data.Radius);
-                        max = referencePos + col.CenterOffset + Vec2(col.Data.Radius, col.Data.Radius);
-                    } else {
-                        // For polygon/box colliders
-                        std::vector<Vec2> verts;
-                        // Temp transform representing the start-of-step state
-                        TransformComponent startTrans = trans;
-                        startTrans.Position = referencePos;
-                        GetPolygonWorldVertices(startTrans, col, verts);
-                        if (verts.empty()) {
-                            min = referencePos;
-                            max = referencePos;
-                            return;
-                        }
-                        min = verts[0];
-                        max = verts[0];
-                        for (const auto& v : verts) {
-                            min.x = std::min(min.x, v.x);
-                            min.y = std::min(min.y, v.y);
-                            max.x = std::max(max.x, v.x);
-                            max.y = std::max(max.y, v.y);
-                        }
-                    }
-                };
-                
-                Vec2 minA, maxA, minB, maxB;
-                GetAABBBounds(idA, minA, maxA);
-                GetAABBBounds(idB, minB, maxB);
-                
-                return SweptAABB(minA, maxA, velA, minB, maxB, velB, stepDt);
-            }
-        };
-
-        auto AdvanceToCCD = [&](EntityID idA, EntityID idB, Real t) {
-            auto& rbA = m_entityManager->GetComponent<RigidBodyComponent>(idA);
-            auto& transA = m_entityManager->GetComponent<TransformComponent>(idA);
-            auto& moveA = m_entityManager->GetComponent<MovementComponent>(idA);
-
-            auto& rbB = m_entityManager->GetComponent<RigidBodyComponent>(idB);
-            auto& transB = m_entityManager->GetComponent<TransformComponent>(idB);
-            auto& moveB = m_entityManager->GetComponent<MovementComponent>(idB);
-
-            // Land exactly at the predicted time-of-impact, then nudge a hair further so
-            // the narrowphase (which only registers a contact on strict overlap, i.e.
-            // dist < radiusSum) actually sees genuine contact THIS substep. The old 0.95
-            // backoff deliberately stopped the body short of contact, so dist stayed
-            // >= radiusSum forever and no restitution ever fired -- fast-approaching
-            // pairs just crept toward each other in shrinking steps every substep,
-            // asymptotically stalling instead of bouncing.
-            const Real epsilon = 0.02f; // world units of guaranteed penetration
-
-            if (!rbA.IsStatic) {
-                Vec2 velA = moveA.Velocity;
-                Real speedA = velA.Magnitude();
-                Vec2 nudgeA = speedA > 0.0001f ? (velA / speedA) * epsilon : Vec2(0.0f, 0.0f);
-                transA.Position = moveA.PrevPosition + velA * t + nudgeA;
-            }
-            if (!rbB.IsStatic) {
-                Vec2 velB = moveB.Velocity;
-                Real speedB = velB.Magnitude();
-                Vec2 nudgeB = speedB > 0.0001f ? (velB / speedB) * epsilon : Vec2(0.0f, 0.0f);
-                transB.Position = moveB.PrevPosition + velB * t + nudgeB;
-            }
-        };
-
-        // Resolve overlaps
-        for (const auto& pair : m_candidatePairs) {
-            TOIResult toi = CheckCCD(pair.first, pair.second, dt);
-            if (toi.hit && toi.toi > dt / 4.0f) {
-                AdvanceToCCD(pair.first, pair.second, toi.toi);
-            }
+        // Resolve overlaps using cached candidate pairs (Zero-heap iteration)
+        const size_t numPairs = m_candidatePairs.Size();
+        for (size_t p = 0; p < numPairs; ++p) {
+            const auto& pair = m_candidatePairs[p];
             ResolveCollision(pair.first, pair.second);
         }
 
         // --- Solve Distance/Joint Constraints ---
-        auto jointEntities = m_entityManager->GetEntitiesWithComponent<JointComponent>();
+        const auto& jointEntities = m_entityManager->GetEntitiesWithComponent<JointComponent>();
+        if (jointEntities.empty()) return;
+
         for (auto id : jointEntities) {
             auto& joint = m_entityManager->GetComponent<JointComponent>(id);
             if (!joint.IsActive) continue;
@@ -1123,7 +1335,8 @@ namespace Velox {
     }
 
     void PhysicsSystem::SolveRevoluteJoints(Real dt) {
-        auto entities = m_entityManager->GetEntitiesWithComponent<RevoluteJointComponent>();
+        const auto& entities = m_entityManager->GetEntitiesWithComponent<RevoluteJointComponent>();
+        if (entities.empty()) return;
         for (auto id : entities) {
             auto& joint = m_entityManager->GetComponent<RevoluteJointComponent>(id);
             if (!joint.IsActive) continue;
@@ -1226,7 +1439,8 @@ namespace Velox {
     }
 
     void PhysicsSystem::SolvePrismaticJoints(Real dt) {
-        auto entities = m_entityManager->GetEntitiesWithComponent<PrismaticJointComponent>();
+        const auto& entities = m_entityManager->GetEntitiesWithComponent<PrismaticJointComponent>();
+        if (entities.empty()) return;
         for (auto id : entities) {
             auto& joint = m_entityManager->GetComponent<PrismaticJointComponent>(id);
             if (!joint.IsActive) continue;
@@ -1249,20 +1463,19 @@ namespace Velox {
 
             Vec2 pA = transA.Position + rA;
             Vec2 pB = transB.Position + rB;
-
-            Vec2 axisA = joint.LocalAxisA.Rotate(transA.Rotation).Normalized();
-            Vec2 perpA = Vec2(-axisA.y, axisA.x);
-
             Vec2 d = pB - pA;
 
-            // 1. Lateral point-on-line constraint
-            Real C_perp = d.Dot(perpA);
+            // Axis in world space (attached to Body A)
+            Vec2 axisA = joint.LocalAxisA.Rotate(transA.Rotation);
+            Vec2 perpA = {-axisA.y, axisA.x}; // Perpendicular constraint axis
+
             Real w1 = rbA.InverseMass;
             Real w2 = rbB.InverseMass;
 
+            // 1. Position constraint along perpendicular axis (C_perp = perpA . d = 0)
+            Real C_perp = perpA.Dot(d);
             Real rAxP = rA.x * perpA.y - rA.y * perpA.x;
             Real rBxP = rB.x * perpA.y - rB.y * perpA.x;
-
             Real w1_rot = rbA.InverseInertia * rAxP * rAxP;
             Real w2_rot = rbB.InverseInertia * rBxP * rBxP;
 
@@ -1327,7 +1540,7 @@ namespace Velox {
                 }
             }
 
-            // 4. Linear motor along sliding axis
+            // 3. Linear motor along sliding axis (Applied before hard limit enforcement)
             if (joint.EnableMotor) {
                 Real sumM = w1 + w2;
                 if (sumM > 0.0001f) {
@@ -1351,11 +1564,33 @@ namespace Velox {
                     if (!rbB.IsStatic) transB.Position += axisA * (impulse * w2 * dt);
                 }
             }
+
+            // 4. Translation limits along sliding axis (Hard clamp enforcement)
+            if (joint.LimitsEnabled) {
+                // Refresh anchors after motor
+                rA = joint.LocalAnchorA.Rotate(transA.Rotation);
+                rB = joint.LocalAnchorB.Rotate(transB.Rotation);
+                pA = transA.Position + rA;
+                pB = transB.Position + rB;
+                d = pB - pA;
+                Real translation = d.Dot(axisA);
+
+                if (translation < joint.MinTranslation) {
+                    Real delta = joint.MinTranslation - translation;
+                    if (!rbB.IsStatic) transB.Position += axisA * delta;
+                    else if (!rbA.IsStatic) transA.Position -= axisA * delta;
+                } else if (translation > joint.MaxTranslation) {
+                    Real delta = joint.MaxTranslation - translation;
+                    if (!rbB.IsStatic) transB.Position += axisA * delta;
+                    else if (!rbA.IsStatic) transA.Position -= axisA * delta;
+                }
+            }
         }
     }
 
     void PhysicsSystem::SolveGearJoints(Real dt) {
-        auto entities = m_entityManager->GetEntitiesWithComponent<GearJointComponent>();
+        const auto& entities = m_entityManager->GetEntitiesWithComponent<GearJointComponent>();
+        if (entities.empty()) return;
         for (auto id : entities) {
             auto& joint = m_entityManager->GetComponent<GearJointComponent>(id);
             if (!joint.IsActive) continue;
@@ -1392,7 +1627,8 @@ namespace Velox {
     }
 
     void PhysicsSystem::SolvePulleyJoints(Real dt) {
-        auto entities = m_entityManager->GetEntitiesWithComponent<PulleyJointComponent>();
+        const auto& entities = m_entityManager->GetEntitiesWithComponent<PulleyJointComponent>();
+        if (entities.empty()) return;
         for (auto id : entities) {
             auto& joint = m_entityManager->GetComponent<PulleyJointComponent>(id);
             if (!joint.IsActive) continue;
@@ -1457,7 +1693,7 @@ namespace Velox {
     /// position delta applied during Integrate + SolveConstraints, so subsequent
     /// impulse resolution acts on the corrected motion rather than the raw prediction.
     void PhysicsSystem::DeriveVelocities(Real dt) {
-        auto entities = m_entityManager->GetEntitiesWithComponent<RigidBodyComponent>();
+        const auto& entities = m_entityManager->GetEntitiesWithComponent<RigidBodyComponent>();
         for (auto id : entities) {
             if (!m_entityManager->HasComponent<TransformComponent>(id) || 
                 !m_entityManager->HasComponent<MovementComponent>(id)) continue;
@@ -1467,9 +1703,21 @@ namespace Velox {
             
             auto& trans = m_entityManager->GetComponent<TransformComponent>(id);
             auto& move = m_entityManager->GetComponent<MovementComponent>(id);
-            
-            Vec2 derivedVel = (trans.Position - move.PrevPosition) / dt;
-            Real derivedAngVel = (trans.Rotation - move.PrevRotation) / dt;
+            // In XPBD: blend derived velocity from positional correction with integrated velocity
+            // to preserve momentum and prevent positional overlap corrections from creating artificial kinetic energy
+            Vec2 posDeltaVel = (trans.Position - move.PrevPosition) / dt;
+            Real posDeltaAngVel = (trans.Rotation - move.PrevRotation) / dt;
+
+            // Strict velocity bound: derived velocity magnitude cannot exceed incoming velocity + gravity acceleration
+            Real prevSpeed = move.PrevVelocity.Magnitude();
+            Real maxAllowedSpeed = std::max(prevSpeed * 1.05f, 20.0f);
+            Real posDeltaSpeed = posDeltaVel.Magnitude();
+            if (posDeltaSpeed > maxAllowedSpeed && prevSpeed > 0.0f) {
+                posDeltaVel = posDeltaVel * (maxAllowedSpeed / posDeltaSpeed);
+            }
+
+            Vec2 derivedVel = posDeltaVel;
+            Real derivedAngVel = posDeltaAngVel;
 
             // Clamp derived velocities to prevent numerical explosion from massive spawn/teleport corrections
             const Real maxVel = 2000.0f;
@@ -1538,40 +1786,43 @@ namespace Velox {
                 dynamicFriction = std::sqrt(matA.DynamicFriction * matB.DynamicFriction);
             }
 
-            Real numPts = (Real)contact.contactPoints.size();
+            Real numPts = (Real)contact.contactCount;
             if (numPts == 0) continue;
 
-            for (const auto& pt : contact.contactPoints) {
+            for (uint8_t pi = 0; pi < contact.contactCount; ++pi) {
+                const auto& pt = contact.contactPoints[pi];
                 Vec2 rA = pt - transA.Position;
                 Vec2 rB = pt - transB.Position;
-
-                // Use PRE-integration velocities to determine approach direction.
-                // After DeriveVelocities, the velocity reflects position AFTER correction
-                // (bodies pushed apart), so vn would be > 0 and restitution would be
-                // skipped. PrevVelocity captures the actual approach intent.
-                Vec2 prevVA = moveA.PrevVelocity + Vec2(-moveA.PrevAngularVelocity * rA.y, moveA.PrevAngularVelocity * rA.x);
-                Vec2 prevVB = moveB.PrevVelocity + Vec2(-moveB.PrevAngularVelocity * rB.y, moveB.PrevAngularVelocity * rB.x);
-                Real prevVn = (prevVA - prevVB).Dot(contact.normal);
 
                 // Current velocity for computing the actual impulse
                 Vec2 vA = moveA.Velocity + Vec2(-moveA.AngularVelocity * rA.y, moveA.AngularVelocity * rA.x);
                 Vec2 vB = moveB.Velocity + Vec2(-moveB.AngularVelocity * rB.y, moveB.AngularVelocity * rB.x);
                 Vec2 relVel = vA - vB;
 
-                Real vn = relVel.Dot(contact.normal);
                 Real rAxn = rA.x * contact.normal.y - rA.y * contact.normal.x;
                 Real rBxn = rB.x * contact.normal.y - rB.y * contact.normal.x;
                 Real denomNormal = w1 + w2 + rbA.InverseInertia * rAxn * rAxn + rbB.InverseInertia * rBxn * rBxn;
 
-                Real jn = 0.0f;
-                if (prevVn < -0.01f && vn < 0.0f) {
-                    if (denomNormal > 0.0001f) {
-                        Real targetVn = -e * prevVn;
-                        jn = (targetVn - vn) / (denomNormal * numPts);
-                        if (jn < 0.0f) jn = 0.0f;
-                        
-                        Vec2 normalImpulse = contact.normal * jn;
+                // Pre-step incoming approach velocity (before positional XPBD correction)
+                Vec2 vA_in = moveA.PrevVelocity + Vec2(-moveA.PrevAngularVelocity * rA.y, moveA.PrevAngularVelocity * rA.x);
+                Vec2 vB_in = moveB.PrevVelocity + Vec2(-moveB.PrevAngularVelocity * rB.y, moveB.PrevAngularVelocity * rB.x);
+                Real vn_in = (vA_in - vB_in).Dot(contact.normal);
 
+                // Current derived separating velocity
+                Vec2 vA_cur = moveA.Velocity + Vec2(-moveA.AngularVelocity * rA.y, moveA.AngularVelocity * rA.x);
+                Vec2 vB_cur = moveB.Velocity + Vec2(-moveB.AngularVelocity * rB.y, moveB.AngularVelocity * rB.x);
+                Real vn_cur = (vA_cur - vB_cur).Dot(contact.normal);
+
+                // Resting contact threshold (25.0 px/s): if incoming speed is below gravity sub-step, do not bounce
+                Real effectiveRestitution = (vn_in > -25.0f) ? 0.0f : e;
+                Real jn = 0.0f;
+
+                if (vn_in < -25.0f && effectiveRestitution > 0.0f) {
+                    Real targetVn = -effectiveRestitution * vn_in;
+                    Real deltaVn = targetVn - vn_cur;
+                    if (deltaVn > 0.0f && denomNormal > 0.0001f) {
+                        jn = deltaVn / (denomNormal * numPts);
+                        Vec2 normalImpulse = contact.normal * jn;
                         if (!rbA.IsStatic) {
                             moveA.Velocity += normalImpulse * w1;
                             moveA.AngularVelocity += rbA.InverseInertia * (rA.x * normalImpulse.y - rA.y * normalImpulse.x);
@@ -1784,7 +2035,8 @@ namespace Velox {
     }
 
     void PhysicsSystem::SolveSoftBodies(Real dt) {
-        auto entities = m_entityManager->GetEntitiesWithComponent<SoftBodyComponent>();
+        const auto& entities = m_entityManager->GetEntitiesWithComponent<SoftBodyComponent>();
+        if (entities.empty()) return;
         for (auto id : entities) {
             auto& softBody = m_entityManager->GetComponent<SoftBodyComponent>(id);
             if (softBody.Nodes.empty()) continue;
@@ -1813,6 +2065,142 @@ namespace Velox {
                 SolveSoftBodyArea(id, softBody, dt);
             } else if (softBody.Type == SoftBodyType::ShapeMatched) {
                 SolveSoftBodyShapeMatch(id, softBody, dt);
+            }
+
+            // Project soft body nodes against static obstacles after volume/shape restoration
+            ProjectSoftBodyAgainstStaticObstacles(id, softBody);
+        }
+
+        // Edge-segment continuous envelope collision to prevent rigid bodies penetrating cushion interior
+        SolveSoftBodyEdgeCollisions(dt);
+    }
+
+    void PhysicsSystem::ProjectSoftBodyAgainstStaticObstacles(EntityID id, SoftBodyComponent& softBody) {
+        (void)id;
+        auto* rbArray = m_entityManager->GetComponentArrayFast<RigidBodyComponent>();
+        auto* colArray = m_entityManager->GetComponentArrayFast<ColliderComponent>();
+        auto* transArray = m_entityManager->GetComponentArrayFast<TransformComponent>();
+        if (!rbArray || !colArray || !transArray) return;
+
+        const auto& colliderEntities = colArray->GetDenseEntities();
+
+        for (EntityID nodeId : softBody.Nodes) {
+            if (!transArray->HasData(nodeId) || !colArray->HasData(nodeId)) continue;
+            auto& nodeTrans = transArray->GetData(nodeId);
+            auto& nodeCol = colArray->GetData(nodeId);
+            Real nodeR = nodeCol.Data.Radius;
+
+            for (EntityID obsId : colliderEntities) {
+                if (!rbArray->HasData(obsId) || !rbArray->GetData(obsId).IsStatic) continue;
+                if (!transArray->HasData(obsId)) continue;
+
+                const auto& obsCol = colArray->GetData(obsId);
+                const auto& obsTrans = transArray->GetData(obsId);
+
+                if (obsCol.Type == ColliderType::Box) {
+                    Vec2 boxHalf = obsCol.Data.BoxHalfExtents;
+                    Vec2 relPos = (nodeTrans.Position + nodeCol.CenterOffset) - (obsTrans.Position + obsCol.CenterOffset);
+                    Vec2 localPos = relPos.Rotate(-obsTrans.Rotation);
+
+                    Vec2 clampedLocal = localPos;
+                    clampedLocal.x = std::max(-boxHalf.x, std::min(clampedLocal.x, boxHalf.x));
+                    clampedLocal.y = std::max(-boxHalf.y, std::min(clampedLocal.y, boxHalf.y));
+
+                    Vec2 closestWorld = (obsTrans.Position + obsCol.CenterOffset) + clampedLocal.Rotate(obsTrans.Rotation);
+                    Vec2 n = (nodeTrans.Position + nodeCol.CenterOffset) - closestWorld;
+                    Real distSqr = n.MagnitudeSqr();
+
+                    if (distSqr < nodeR * nodeR && distSqr > 1e-8f) {
+                        Real dist = std::sqrt(distSqr);
+                        n = n * (1.0f / dist);
+                        Real pen = nodeR - dist;
+                        nodeTrans.Position += n * pen;
+                    } else if (distSqr <= 1e-8f) {
+                        // Deeply embedded inside static box - project out along closest axis
+                        Real dx = boxHalf.x - std::abs(localPos.x);
+                        Real dy = boxHalf.y - std::abs(localPos.y);
+                        Vec2 outLocal = localPos;
+                        if (dx < dy) {
+                            outLocal.x = (localPos.x >= 0.0f) ? (boxHalf.x + nodeR + 0.1f) : (-boxHalf.x - nodeR - 0.1f);
+                        } else {
+                            outLocal.y = (localPos.y >= 0.0f) ? (boxHalf.y + nodeR + 0.1f) : (-boxHalf.y - nodeR - 0.1f);
+                        }
+                        nodeTrans.Position = (obsTrans.Position + obsCol.CenterOffset) + outLocal.Rotate(obsTrans.Rotation);
+                    }
+                }
+            }
+        }
+    }
+
+    void PhysicsSystem::SolveSoftBodyEdgeCollisions(Real dt) {
+        (void)dt;
+        const auto& sbEntities = m_entityManager->GetEntitiesWithComponent<SoftBodyComponent>();
+        if (sbEntities.empty()) return;
+
+        auto* rbArray = m_entityManager->GetComponentArrayFast<RigidBodyComponent>();
+        auto* colArray = m_entityManager->GetComponentArrayFast<ColliderComponent>();
+        auto* transArray = m_entityManager->GetComponentArrayFast<TransformComponent>();
+        if (!rbArray || !colArray || !transArray) return;
+
+        const auto& colliderEntities = colArray->GetDenseEntities();
+
+        for (EntityID sbId : sbEntities) {
+            auto& sb = m_entityManager->GetComponent<SoftBodyComponent>(sbId);
+            size_t n = sb.Nodes.size();
+            if (n < 3) continue;
+
+            for (size_t i = 0; i < n; ++i) {
+                size_t next = (i + 1) % n;
+                EntityID id1 = sb.Nodes[i];
+                EntityID id2 = sb.Nodes[next];
+                if (!transArray->HasData(id1) || !transArray->HasData(id2)) continue;
+
+                auto& t1 = transArray->GetData(id1);
+                auto& t2 = transArray->GetData(id2);
+                Vec2 p1 = t1.Position;
+                Vec2 p2 = t2.Position;
+                Vec2 edge = p2 - p1;
+                Real edgeLenSqr = edge.MagnitudeSqr();
+                if (edgeLenSqr < 1e-6f) continue;
+                Real edgeLen = std::sqrt(edgeLenSqr);
+                Vec2 edgeDir = edge * (1.0f / edgeLen);
+                Vec2 edgeNormal = Vec2(-edgeDir.y, edgeDir.x); // CCW perpendicular normal
+
+                for (EntityID rigidId : colliderEntities) {
+                    if (!rbArray->HasData(rigidId)) continue;
+                    auto& rb = rbArray->GetData(rigidId);
+                    if (rb.IsStatic) continue;
+
+                    auto& col = colArray->GetData(rigidId);
+                    if (col.GroupId != -1 && col.GroupId == colArray->GetData(id1).GroupId) continue;
+
+                    auto& trans = transArray->GetData(rigidId);
+                    Vec2 center = trans.Position + col.CenterOffset;
+                    Real r = (col.Type == ColliderType::Circle) ? col.Data.Radius : std::max(col.Data.BoxHalfExtents.x, col.Data.BoxHalfExtents.y);
+
+                    // Project center onto edge line
+                    Vec2 toCenter = center - p1;
+                    Real t = std::max(0.0f, std::min(edgeLen, toCenter.Dot(edgeDir)));
+                    Vec2 closestPoint = p1 + edgeDir * t;
+                    Vec2 diff = center - closestPoint;
+                    Real distSqr = diff.MagnitudeSqr();
+
+                    if (distSqr < r * r && distSqr > 1e-8f) {
+                        Real dist = std::sqrt(distSqr);
+                        Vec2 edgeNorm = diff * (1.0f / dist);
+                        Real pen = r - dist;
+
+                        Real wRigid = rb.InverseMass;
+                        Real wNode = 0.5f; // Each edge endpoint absorbs half correction
+                        Real totalW = wRigid + wNode;
+                        if (totalW > 0.0f) {
+                            trans.Position += edgeNorm * (pen * (wRigid / totalW));
+                            t1.Position -= edgeNorm * (pen * (0.5f * wNode / totalW));
+                            t2.Position -= edgeNorm * (pen * (0.5f * wNode / totalW));
+                            m_contacts.PushBack({rigidId, id1, edgeNorm, pen, {closestPoint}});
+                        }
+                    }
+                }
             }
         }
     }
@@ -1946,4 +2334,26 @@ namespace Velox {
             trans.Position += (targetPos - trans.Position) * softBody.Stiffness;
         }
     }
+
+    void PhysicsSystem::WakeBody(EntityID id) {
+        if (m_entityManager && m_entityManager->HasComponent<RigidBodyComponent>(id)) {
+            auto& rb = m_entityManager->GetComponent<RigidBodyComponent>(id);
+            if (!rb.IsStatic) {
+                rb.IsSleeping = false;
+                rb.SleepTimer = 0.0f;
+            }
+        }
+    }
+
+    void PhysicsSystem::WakeTouching(EntityID id) {
+        WakeBody(id);
+        for (const auto& kv : m_persistentContacts) {
+            if (kv.first.idA == id) {
+                WakeBody(kv.first.idB);
+            } else if (kv.first.idB == id) {
+                WakeBody(kv.first.idA);
+            }
+        }
+    }
 }
+

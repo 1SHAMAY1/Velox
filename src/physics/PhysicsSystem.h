@@ -13,8 +13,13 @@
  */
 
 #include "../core/VelcoxECS.h"
+#include "../core/Containers.h"
 #include "../math/Vec2.h"
 #include "Components.h"
+#include "DynamicTree.h"
+#include "FlatSpatialHash.h"
+#include "IslandManager.h"
+#include "PhysicsBehavior.h"
 
 namespace Velox {
 
@@ -23,13 +28,31 @@ namespace Velox {
      *
      * Produced by the narrowphase solvers and consumed by ResolveVelocities
      * to apply impulse-based corrections after positional resolution.
+     * Uses zero-allocation fixed stack storage for contact manifolds.
      */
     struct ContactInfo {
-        EntityID idA;
-        EntityID idB;
+        EntityID idA = 0;
+        EntityID idB = 0;
         Vec2 normal;       ///< Collision normal, pointing from B toward A.
-        Real penetration;  ///< Signed penetration depth along the normal.
-        std::vector<Vec2> contactPoints; ///< World-space contact manifold points.
+        Real penetration = 0.0f;  ///< Signed penetration depth along the normal.
+        std::array<Vec2, 4> contactPoints{}; ///< World-space contact manifold points (fixed stack).
+        uint8_t contactCount = 0;
+
+        ContactInfo() = default;
+        ContactInfo(EntityID a, EntityID b, Vec2 n, Real pen, const Vec2& pt)
+            : idA(a), idB(b), normal(n), penetration(pen), contactCount(1) {
+            contactPoints[0] = pt;
+        }
+        ContactInfo(EntityID a, EntityID b, Vec2 n, Real pen, const std::array<Vec2, 4>& pts, uint8_t count)
+            : idA(a), idB(b), normal(n), penetration(pen), contactPoints(pts), contactCount(count) {}
+        ContactInfo(EntityID a, EntityID b, Vec2 n, Real pen, std::initializer_list<Vec2> pts)
+            : idA(a), idB(b), normal(n), penetration(pen), contactCount(0) {
+            for (const auto& pt : pts) {
+                if (contactCount < 4) {
+                    contactPoints[contactCount++] = pt;
+                }
+            }
+        }
     };
 
     /**
@@ -44,10 +67,9 @@ namespace Velox {
      *   3. DeriveVelocities — recompute velocities from position deltas (XPBD).
      *   4. ResolveVelocities — impulse-based bounce, friction, and restitution.
      */
-    class PhysicsSystem {
+    class VELOX_API PhysicsSystem {
     public:
-        explicit PhysicsSystem(std::shared_ptr<EntityManager> entityManager)
-            : m_entityManager(entityManager) {}
+        explicit PhysicsSystem(std::shared_ptr<EntityManager> entityManager);
 
         /// Advance the simulation by dt seconds (sub-stepped internally).
         void Step(Real dt);
@@ -55,6 +77,14 @@ namespace Velox {
         /// Set the global gravity vector. Any direction and magnitude are valid.
         /// Default is (0, 0) — zero gravity.
         void SetGravity(Vec2 gravity) { m_gravity = gravity; }
+
+        /// Collision Callback Signatures
+        using CollisionCallback = void(*)(EntityID entityA, EntityID entityB, Real normalX, Real normalY, void* userData);
+        using SensorCallback = void(*)(EntityID sensorEntity, EntityID otherEntity, bool isEntering, void* userData);
+
+        void SetCollisionBeginCallback(CollisionCallback cb, void* userData = nullptr) { m_collisionBeginCb = cb; m_collisionBeginUserData = userData; }
+        void SetCollisionEndCallback(CollisionCallback cb, void* userData = nullptr) { m_collisionEndCb = cb; m_collisionEndUserData = userData; }
+        void SetSensorCallback(SensorCallback cb, void* userData = nullptr) { m_sensorCb = cb; m_sensorUserData = userData; }
 
         /**
          * @brief Cast a ray into the scene and return the first hit.
@@ -70,8 +100,15 @@ namespace Velox {
         bool Raycast(const Vec2& start, const Vec2& direction, Real maxDistance,
                      Vec2& hitPoint, Vec2& hitNormal, Real& fraction, EntityID& hitEntity);
 
+        /// Wakes a specific rigid body from sleep.
+        void WakeBody(EntityID id);
+
+        /// Wakes a rigid body and all adjacent bodies currently in contact with it.
+        void WakeTouching(EntityID id);
+
     private:
         void ApplyRules(Real dt);       ///< Apply force fields, oscillators, and rotation motors.
+        void UpdateBroadphase(Real dt); ///< Build Broadphase & query candidate pairs once per frame.
         void Integrate(Real dt);         ///< Predict positions via semi-implicit Euler integration.
         void SolveConstraints(Real dt);  ///< Broadphase + narrowphase collision and joint solving.
         void SolveRevoluteJoints(Real dt); ///< Solve revolute hinge constraints.
@@ -81,45 +118,45 @@ namespace Velox {
         void SolveSoftBodies(Real dt);   ///< Solve soft body constraints.
         void SolveSoftBodyArea(EntityID id, SoftBodyComponent& softBody, Real dt);
         void SolveSoftBodyShapeMatch(EntityID id, SoftBodyComponent& softBody, Real dt);
+        void ProjectSoftBodyAgainstStaticObstacles(EntityID id, SoftBodyComponent& softBody);
+        void SolveSoftBodyEdgeCollisions(Real dt);
         void DeriveVelocities(Real dt);  ///< Derive corrected velocities from position deltas.
         void ResolveVelocities(Real dt); ///< Apply impulse-based restitution and friction.
 
         std::shared_ptr<EntityManager> m_entityManager;
         Vec2 m_gravity = Vec2(0.0f, 0.0f); ///< Global directional gravity vector (world units/s²).
-        std::vector<ContactInfo> m_contacts; ///< Contact manifold accumulated per sub-step.
-        std::vector<std::pair<EntityID, EntityID>> m_candidatePairs; ///< Cache for unique broadphase pairs.
+        PodVector<ContactInfo> m_contacts; ///< Contact manifold accumulated per sub-step.
+        
+        struct CandidatePair {
+            EntityID first;
+            EntityID second;
+        };
+        PodVector<CandidatePair> m_candidatePairs; ///< Flat cache for unique broadphase pairs.
 
-        /**
-         * @brief Flat 2D grid for broadphase collision culling (cache-friendly, zero-allocation).
-         */
-        struct FlatGrid {
-            static constexpr int CELL_SIZE   = 60;
-            static constexpr int GRID_W      = 1280 / CELL_SIZE + 2; // 23 cells wide
-            static constexpr int GRID_H      = 720  / CELL_SIZE + 2; // 14 cells tall
-            static constexpr int MAX_PER_CELL = 64;
+        FlatSpatialHash m_spatialHash; ///< Cache-aligned Zero-Allocation Flat Spatial Hash Grid
+        DynamicTree m_dynamicTree;     ///< Dynamic AABB Tree BVH for raycasts
+        Bitset m_activeBitset;         ///< Fast 1-bit tag mask for dynamic active entities
+        IslandManager m_islandManager; ///< Fast disjoint set island sleeping graph
 
-            std::array<std::array<EntityID, MAX_PER_CELL>, GRID_W * GRID_H> cells;
-            std::array<int, GRID_W * GRID_H> counts;
+        // Event callbacks & persistent contact state
+        CollisionCallback m_collisionBeginCb = nullptr;
+        void* m_collisionBeginUserData = nullptr;
+        CollisionCallback m_collisionEndCb = nullptr;
+        void* m_collisionEndUserData = nullptr;
+        SensorCallback m_sensorCb = nullptr;
+        void* m_sensorUserData = nullptr;
 
-            void Clear() {
-                counts.fill(0);
+        struct ContactPairKey {
+            EntityID idA;
+            EntityID idB;
+            bool operator==(const ContactPairKey& o) const { return idA == o.idA && idB == o.idB; }
+        };
+        struct ContactPairKeyHash {
+            size_t operator()(const ContactPairKey& k) const {
+                return (size_t)k.idA ^ ((size_t)k.idB << 16);
             }
-
-            void Insert(EntityID id, const Vec2& min, const Vec2& max) {
-                int startX = std::max(0, (int)std::floor(min.x / CELL_SIZE));
-                int endX   = std::min(GRID_W - 1, (int)std::floor(max.x / CELL_SIZE));
-                int startY = std::max(0, (int)std::floor(min.y / CELL_SIZE));
-                int endY   = std::min(GRID_H - 1, (int)std::floor(max.y / CELL_SIZE));
-
-                for (int x = startX; x <= endX; ++x) {
-                    for (int y = startY; y <= endY; ++y) {
-                        int idx = y * GRID_W + x;
-                        if (counts[idx] < MAX_PER_CELL) {
-                            cells[idx][counts[idx]++] = id;
-                        }
-                    }
-                }
-            }
-        } m_grid;
+        };
+        std::unordered_map<ContactPairKey, Vec2, ContactPairKeyHash> m_persistentContacts;
+        std::unordered_map<ContactPairKey, bool, ContactPairKeyHash> m_persistentSensors;
     };
 }

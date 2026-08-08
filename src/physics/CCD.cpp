@@ -77,4 +77,59 @@ namespace Velox {
 
         return { false, 0.0f };
     }
+
+    TOIResult SweptCircleBox(Vec2 circleP, Vec2 circleV, Real radius,
+                             Vec2 boxP, Vec2 boxV, Vec2 boxHalfExtents, Real boxRotation,
+                             Real subDt, Vec2& outNormal) {
+        // Transform relative trajectory to Box Local Space
+        Vec2 relV = circleV - boxV;
+        Vec2 relP = circleP - boxP;
+
+        Vec2 localP = relP.Rotate(-boxRotation);
+        Vec2 localV = relV.Rotate(-boxRotation);
+
+        // Expanded box by radius (Minkowski sum with circle = rounded box)
+        Vec2 expHalf = boxHalfExtents + Vec2(radius, radius);
+
+        // Ray vs Expanded AABB in local space
+        Real tMin = 0.0f;
+        Real tMax = subDt;
+        Vec2 normal = {0.0f, 0.0f};
+
+        // X slab
+        if (std::abs(localV.x) > 1e-6f) {
+            Real t1 = (-expHalf.x - localP.x) / localV.x;
+            Real t2 = (expHalf.x - localP.x) / localV.x;
+            Vec2 n1 = {-1.0f, 0.0f};
+            Vec2 n2 = {1.0f, 0.0f};
+            if (t1 > t2) { std::swap(t1, t2); std::swap(n1, n2); }
+            if (t1 > tMin) { tMin = t1; normal = n1; }
+            tMax = std::min(tMax, t2);
+            if (tMin > tMax) return { false, 0.0f };
+        } else {
+            if (std::abs(localP.x) > expHalf.x) return { false, 0.0f };
+        }
+
+        // Y slab
+        if (std::abs(localV.y) > 1e-6f) {
+            Real t1 = (-expHalf.y - localP.y) / localV.y;
+            Real t2 = (expHalf.y - localP.y) / localV.y;
+            Vec2 n1 = {0.0f, -1.0f};
+            Vec2 n2 = {0.0f, 1.0f};
+            if (t1 > t2) { std::swap(t1, t2); std::swap(n1, n2); }
+            if (t1 > tMin) { tMin = t1; normal = n1; }
+            tMax = std::min(tMax, t2);
+            if (tMin > tMax) return { false, 0.0f };
+        } else {
+            if (std::abs(localP.y) > expHalf.y) return { false, 0.0f };
+        }
+
+        if (tMin >= 0.0f && tMin <= subDt) {
+            outNormal = normal.Rotate(boxRotation);
+            return { true, tMin };
+        }
+
+        return { false, 0.0f };
+    }
 }
+
