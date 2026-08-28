@@ -9,7 +9,9 @@
 #include <limits>
 #include <cmath>
 
-#ifdef WIN32
+#if defined(VELOX_STATIC)
+    #define VELOX_API
+#elif defined(WIN32)
     #ifdef VELOX_EXPORTS
         #define VELOX_API __declspec(dllexport) ///< Marks a symbol for export when building the Velox DLL.
     #else

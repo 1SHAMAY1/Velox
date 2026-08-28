@@ -82,17 +82,33 @@ extern "C" {
 
     // --- Setters ---
 
+    /// Sets `entity`'s position directly.
+    VELOX_API void Velox_SetPosition(VeloxWorld* world, Velox::EntityID entity, float x, float y);
+
+    /// Sets `entity`'s transform (position and rotation in radians).
+    VELOX_API void Velox_SetTransform(VeloxWorld* world, Velox::EntityID entity, float x, float y, float rotation);
+
     /// Sets `entity`'s linear velocity directly (requires a MovementComponent).
     VELOX_API void Velox_SetVelocity(VeloxWorld* world, Velox::EntityID entity, float x, float y);
 
+    /// Sets `entity`'s angular velocity directly (requires a MovementComponent).
+    VELOX_API void Velox_SetAngularVelocity(VeloxWorld* world, Velox::EntityID entity, float angularVelocity);
+
     /// Sets `entity`'s linear and angular velocity damping (requires a MovementComponent).
     VELOX_API void Velox_SetDamping(VeloxWorld* world, Velox::EntityID entity, float linear, float angular);
+
+    /// Wakes a specific body from sleep.
+    VELOX_API void Velox_WakeBody(VeloxWorld* world, Velox::EntityID entity);
+
+    /// Wakes a body and all bodies currently in contact with it.
+    VELOX_API void Velox_WakeTouching(VeloxWorld* world, Velox::EntityID entity);
 
     // --- Getters ---
 
     /// Reads `entity`'s current position and rotation into the output pointers.
     /// Leaves the outputs untouched if `entity` has no TransformComponent.
     VELOX_API void Velox_GetPosition(VeloxWorld* world, Velox::EntityID entity, float* x, float* y, float* rotation);
+    VELOX_API void Velox_GetVelocity(VeloxWorld* world, Velox::EntityID entity, float* vx, float* vy, float* angularVelocity);
     VELOX_API bool Velox_IsSleeping(VeloxWorld* world, Velox::EntityID entity);
 
     // --- Gravity Configuration ---
@@ -134,5 +150,13 @@ extern "C" {
     VELOX_API Velox::EntityID Velox_CreateSoftBodyShapeMatched(VeloxWorld* world, float cx, float cy, float* verticesX, float* verticesY, int vertexCount, float stiffness, float nodeRadius);
     VELOX_API int Velox_GetSoftBodyNodeCount(VeloxWorld* world, Velox::EntityID softBodyEntity);
     VELOX_API Velox::EntityID Velox_GetSoftBodyNode(VeloxWorld* world, Velox::EntityID softBodyEntity, int nodeIndex);
+
+    // --- Collision & Sensor Event System (Event-Based Architecture) ---
+    typedef void (*VeloxCollisionCallback)(Velox::EntityID entityA, Velox::EntityID entityB, float normalX, float normalY, void* userData);
+    typedef void (*VeloxSensorCallback)(Velox::EntityID sensorEntity, Velox::EntityID otherEntity, bool isEntering, void* userData);
+
+    VELOX_API void Velox_SetCollisionBeginCallback(VeloxWorld* world, VeloxCollisionCallback callback, void* userData);
+    VELOX_API void Velox_SetCollisionEndCallback(VeloxWorld* world, VeloxCollisionCallback callback, void* userData);
+    VELOX_API void Velox_SetSensorCallback(VeloxWorld* world, VeloxSensorCallback callback, void* userData);
 
 }
