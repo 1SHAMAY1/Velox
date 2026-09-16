@@ -23,6 +23,19 @@
 #include <iostream>
 #include <string>
 #include <deque>
+#include <chrono>
+
+#if defined(_WIN32)
+static size_t GetProcessWorkingSet() {
+    PROCESS_MEMORY_COUNTERS_EX pmc{};
+    if (GetProcessMemoryInfo(GetCurrentProcess(), (PROCESS_MEMORY_COUNTERS*)&pmc, sizeof(pmc))) {
+        return pmc.WorkingSetSize;
+    }
+    return 0;
+}
+#else
+static size_t GetProcessWorkingSet() { return 0; }
+#endif
 
 struct VisualEntity {
     Velox::EntityID id;
@@ -34,6 +47,9 @@ struct VisualEntity {
     bool isProjectile = false; // Flag for projectile behavior cleanup
     const char* label; // Label for force fields
 };
+
+// Global Interactive State
+static float g_gravAngle = 1.5708f;
 
 // --- Scene Management ---
 enum class SceneType {
@@ -51,7 +67,10 @@ enum class SceneType {
     SleepingShowcase,
     SoftBodySandbox,
     SoftBodyFunnel,
-    SoftBodyStacking
+    SoftBodyStacking,
+    BuoyancyWaterTank,
+    ChaosDestruction,
+    RagdollNetwork
 };
 
 SceneType currentScene = SceneType::BouncingBalls;
@@ -75,7 +94,10 @@ const char* sceneNames[] = {
     "Sleeping & Activation Showcase",
     "Soft Body Sandbox Demos",
     "Soft Body Funnel & Squeeze Showcase",
-    "Soft Body Stacking & Loads Showcase"
+    "Soft Body Stacking & Loads Showcase",
+    "Buoyancy & Floating Boats Showcase",
+    "1,000-Body Chaos & Destruction Sandbox",
+    "Articulated Ragdoll Network Showcase"
 };
 
 void AddScreenBoundaries(VeloxWorld* world, std::vector<VisualEntity>& entities, int screenWidth, int screenHeight) {
@@ -126,7 +148,7 @@ void SetupBouncingBalls(VeloxWorld* world, std::vector<VisualEntity>& entities, 
     }
 
     // Set directional gravity (straight down for this scene)
-    Velox_SetGravity(world, 0.0f, 400.0f);
+    Velox_SetGravity(world, 0.0f, 980.0f);
 
     // 2. Dynamic Balls
     for (int i = 0; i < 2; ++i) {
@@ -140,7 +162,7 @@ void SetupBouncingBalls(VeloxWorld* world, std::vector<VisualEntity>& entities, 
         Velox_AddCircleCollider(world, id, 20.0f);
         // High restitution so bouncing is visible
         Velox_AddPhysicalMaterial(world, id, 0.1f, 0.05f, 0.85f);
-        float vx = (i == 0) ? 300.0f : -300.0f;
+        float vx = (i == 0) ? 350.0f : -350.0f;
         Velox_SetVelocity(world, id, vx, 1000.0f);
         Velox_SetDamping(world, id, 0.0f, 0.0f);
         Velox_AddRotation(world, id, 5.0f, 0, 0);
@@ -253,39 +275,30 @@ void SetupProjectileDemo(VeloxWorld* world, std::vector<VisualEntity>& entities,
     Velox_AddTransform(world, groundId, screenWidth / 2.0f, screenHeight - 20.0f, 0.0f);
     Velox_AddRigidBody(world, groundId, 0.0f, true);
     Velox_AddBoxCollider(world, groundId, screenWidth, 40.0f);
-    // Ground Material: Extreme Friction (2.0), Low Restitution (0.0)
-    Velox_AddPhysicalMaterial(world, groundId, 2.0f, 2.0f, 0.0f);
+    // Ground Material: Moderate Friction, Zero Restitution
+    Velox_AddPhysicalMaterial(world, groundId, 0.8f, 0.6f, 0.0f);
     
     VisualEntity groundVe; groundVe.id = groundId; groundVe.color = DARKGRAY; groundVe.type = 1; groundVe.width = (float)screenWidth; groundVe.height = 40.0f;
     entities.push_back(groundVe);
 
-    // Gravity Force Field (Massive Inward Field below ground)
-    auto gravId = Velox_CreateEntity(world);
-    // Move origin to be directly below the target boxes to minimize lateral pull
-    Velox_AddTransform(world, gravId, screenWidth * 0.8f, screenHeight + 50000.0f, 0.0f); 
-    // Strength needs to be high to pull from this distance. 
-    // F = Strength * Mass * (1 - dist/Radius). 
-    // If Radius is huge, falloff is small.
-    Velox_AddForceField(world, gravId, 0, 2000.0f, 100000.0f); // Type 0 = Inward
-    
-    // Visual for Gravity (Optional, maybe don't show it since it's "global")
-    // entities.push_back(ve); // Skip visual for invisible gravity
+    // Native Directional Gravity
+    Velox_SetGravity(world, 0.0f, 980.0f);
 
-    // Targets (Stack of boxes)
-    float startX = screenWidth * 0.8f;
-    float startY = screenHeight - 60.0f;
-    float boxSize = 40.0f;
+    // Targets (Stack of responsive boxes on the ground floor)
+    float startX = screenWidth * 0.72f;
+    float boxSize = 36.0f;
+    float startY = screenHeight - 40.0f - (boxSize * 0.5f);
     
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < 6; ++i) {
         for (int j = 0; j < 3; ++j) {
             auto boxId = Velox_CreateEntity(world);
-            Velox_AddTransform(world, boxId, startX + j * (boxSize + 5.0f), startY - i * (boxSize + 5.0f), 0.0f);
-            Velox_AddRigidBody(world, boxId, 1.0f, false);
+            Velox_AddTransform(world, boxId, startX + j * (boxSize + 4.0f), startY - i * (boxSize + 4.0f), 0.0f);
+            Velox_AddRigidBody(world, boxId, 0.75f, false);
             Velox_AddMovement(world, boxId);
             Velox_AddBoxCollider(world, boxId, boxSize, boxSize);
-            // Box Material: High Friction (1.0), Low Restitution (0.0)
-            Velox_AddPhysicalMaterial(world, boxId, 1.0f, 1.0f, 0.0f);
-            Velox_SetDamping(world, boxId, 0.5f, 0.5f); // High damping for stability
+            // Box Material: Moderate Friction, Light Bounce
+            Velox_AddPhysicalMaterial(world, boxId, 0.6f, 0.5f, 0.2f);
+            Velox_SetDamping(world, boxId, 0.05f, 0.05f);
 
             VisualEntity boxVe; boxVe.id = boxId; boxVe.color = ORANGE; boxVe.type = 1; boxVe.width = boxSize; boxVe.height = boxSize;
             entities.push_back(boxVe);
@@ -296,7 +309,7 @@ void SetupProjectileDemo(VeloxWorld* world, std::vector<VisualEntity>& entities,
 // ============================================================
 // SCENE: Gravity Direction Demo
 // Showcases the new Velox_SetGravity directional gravity API.
-// Balls fall in the direction the user controls (WASD).
+// Balls fall in the direction the user controls (WASD / Arrows / Auto-rotate).
 // The gravity arrow rotates in real-time.
 // ============================================================
 void SetupGravityDemo(VeloxWorld* world, std::vector<VisualEntity>& entities, int screenWidth, int screenHeight) {
@@ -334,7 +347,7 @@ void SetupGravityDemo(VeloxWorld* world, std::vector<VisualEntity>& entities, in
         Velox_AddTransform(world, id, x, y, 0.0f);
         Velox_AddRigidBody(world, id, 1.0f, false);
         Velox_AddMovement(world, id);
-        Velox_SetDamping(world, id, 0.02f, 0.05f);
+        Velox_SetDamping(world, id, 0.01f, 0.02f);
         Velox_AddPhysicalMaterial(world, id, 0.3f, 0.2f, 0.6f);
 
         VisualEntity ve; ve.id = id; ve.color = palette[i % numPalette];
@@ -348,8 +361,8 @@ void SetupGravityDemo(VeloxWorld* world, std::vector<VisualEntity>& entities, in
         entities.push_back(ve);
     }
 
-    // Start gravity pointing down
-    Velox_SetGravity(world, 0.0f, 400.0f);
+    g_gravAngle = 1.5708f;
+    Velox_SetGravity(world, 0.0f, 980.0f);
 }
 
 // ============================================================
@@ -379,7 +392,7 @@ void SetupJointDemo(VeloxWorld* world, std::vector<VisualEntity>& entities, int 
     AddScreenBoundaries(world, entities, screenWidth, screenHeight);
     g_jointVisuals.clear();
 
-    Velox_SetGravity(world, 0.0f, 500.0f);
+    Velox_SetGravity(world, 0.0f, 980.0f);
 
     // --- 1. Hanging Pendulum Chain (center-left) ---
     {
@@ -409,7 +422,7 @@ void SetupJointDemo(VeloxWorld* world, std::vector<VisualEntity>& entities, int 
             Velox_AddRigidBody(world, linkId, 1.0f, false);
             Velox_AddMovement(world, linkId);
             Velox_AddCircleCollider(world, linkId, 12.0f);
-            Velox_SetDamping(world, linkId, 0.3f, 0.3f);
+            Velox_SetDamping(world, linkId, 0.1f, 0.1f);
             Velox_AddPhysicalMaterial(world, linkId, 0.3f, 0.2f, 0.2f);
 
             VisualEntity ve; ve.id = linkId; ve.color = chainColors[i];
@@ -442,7 +455,7 @@ void SetupJointDemo(VeloxWorld* world, std::vector<VisualEntity>& entities, int 
         Velox_AddRigidBody(world, bob1Id, 2.0f, false);
         Velox_AddMovement(world, bob1Id);
         Velox_AddCircleCollider(world, bob1Id, 18.0f);
-        Velox_SetDamping(world, bob1Id, 0.01f, 0.01f);
+        Velox_SetDamping(world, bob1Id, 0.005f, 0.005f);
         Velox_AddPhysicalMaterial(world, bob1Id, 0.1f, 0.05f, 0.1f);
         VisualEntity ve1; ve1.id = bob1Id; ve1.color = {255, 120, 50, 255};
         ve1.type = 0; ve1.radius = 18.0f;
@@ -454,7 +467,7 @@ void SetupJointDemo(VeloxWorld* world, std::vector<VisualEntity>& entities, int 
         Velox_AddRigidBody(world, bob2Id, 1.5f, false);
         Velox_AddMovement(world, bob2Id);
         Velox_AddCircleCollider(world, bob2Id, 14.0f);
-        Velox_SetDamping(world, bob2Id, 0.01f, 0.01f);
+        Velox_SetDamping(world, bob2Id, 0.005f, 0.005f);
         Velox_AddPhysicalMaterial(world, bob2Id, 0.1f, 0.05f, 0.1f);
         VisualEntity ve2; ve2.id = bob2Id; ve2.color = {80, 180, 255, 255};
         ve2.type = 0; ve2.radius = 14.0f;
@@ -546,7 +559,7 @@ void SetupSandboxDemo(VeloxWorld* world, std::vector<VisualEntity>& entities, in
     g_sandboxShapes.clear();
     g_jointVisuals.clear();
 
-    Velox_SetGravity(world, 0.0f, 300.0f);
+    Velox_SetGravity(world, 0.0f, 900.0f);
 
     // Motorized Joint Carousel (swings a polygon blade around a static point)
     float pivotX = screenWidth * 0.5f;
@@ -590,6 +603,7 @@ void SetupSandboxDemo(VeloxWorld* world, std::vector<VisualEntity>& entities, in
     Velox_AddRigidBody(world, groundBox, 0.0f, true);
     Velox_AddMovement(world, groundBox);
     Velox_AddBoxCollider(world, groundBox, screenWidth - 100.0f, 25.0f);
+    Velox_AddPhysicalMaterial(world, groundBox, 0.5f, 0.3f, 0.85f); // High bounce ground
     
     std::vector<Vector2> groundLocal = {
         {-(screenWidth - 100.0f)*0.5f, -12.5f},
@@ -606,8 +620,8 @@ void SetupSandboxDemo(VeloxWorld* world, std::vector<VisualEntity>& entities, in
         Velox_AddTransform(world, polyId, screenWidth * 0.25f + i * 160.0f, 100.0f, 0.5f * i);
         Velox_AddRigidBody(world, polyId, 1.0f, false);
         Velox_AddMovement(world, polyId);
-        Velox_SetDamping(world, polyId, 0.05f, 0.05f);
-        Velox_AddPhysicalMaterial(world, polyId, 0.4f, 0.3f, 0.3f);
+        Velox_SetDamping(world, polyId, 0.005f, 0.005f);
+        Velox_AddPhysicalMaterial(world, polyId, 0.3f, 0.2f, 0.85f); // Energetic bouncy restitution
 
         // Pentagon (5 vertices)
         float pX[5], pY[5];
@@ -629,7 +643,7 @@ void SetupChainDemo(VeloxWorld* world, std::vector<VisualEntity>& entities, int 
     g_sandboxShapes.clear();
     g_jointVisuals.clear();
 
-    Velox_SetGravity(world, 0.0f, 350.0f);
+    Velox_SetGravity(world, 0.0f, 900.0f);
 
     // Create static sinusoidal chain floor
     auto chainId = Velox_CreateEntity(world);
@@ -638,46 +652,43 @@ void SetupChainDemo(VeloxWorld* world, std::vector<VisualEntity>& entities, int 
     Velox_AddMovement(world, chainId);
 
     std::vector<float> cx, cy;
-    std::vector<Vector2> localPts;
-    int numPoints = 18;
-    for (int i = 0; i < numPoints; ++i) {
-        float px = (float)i * ((float)screenWidth / (float)(numPoints - 1));
-        float py = screenHeight - 100.0f - std::sin((float)i * 0.9f) * 60.0f;
-        cx.push_back(px);
-        cy.push_back(py);
-        localPts.push_back({px, py});
+    std::vector<Vector2> chainPts;
+    int numPts = 30;
+    for (int i = 0; i < numPts; ++i) {
+        float x = (screenWidth / (float)(numPts - 1)) * i;
+        float y = screenHeight * 0.7f + std::sin(i * 0.5f) * 60.0f;
+        cx.push_back(x);
+        cy.push_back(y);
+        chainPts.push_back({x, y});
     }
-    Velox_AddChainCollider(world, chainId, cx.data(), cy.data(), numPoints);
-    g_sandboxShapes.push_back({chainId, 3, GRAY, localPts});
+    Velox_AddChainCollider(world, chainId, cx.data(), cy.data(), numPts);
+    g_sandboxShapes.push_back({chainId, 3, SKYBLUE, chainPts});
 
-    // Spawn falling balls to bounce on the chain
+    // Dynamic circles and boxes rolling down chain
+    Color palette[] = { RED, ORANGE, GOLD, GREEN, BLUE, MAGENTA };
     for (int i = 0; i < 6; ++i) {
         auto ballId = Velox_CreateEntity(world);
-        Velox_AddTransform(world, ballId, 150.0f + i * 180.0f, 80.0f, 0.0f);
+        Velox_AddTransform(world, ballId, 120.0f + i * 90.0f, 100.0f, 0.0f);
         Velox_AddRigidBody(world, ballId, 1.0f, false);
         Velox_AddMovement(world, ballId);
-        Velox_AddCircleCollider(world, ballId, 16.0f);
-        Velox_SetDamping(world, ballId, 0.01f, 0.01f);
-        Velox_AddPhysicalMaterial(world, ballId, 0.4f, 0.2f, 0.6f); // Good bounce
-
-        VisualEntity ve; ve.id = ballId; ve.color = SKYBLUE;
-        ve.type = 0; ve.radius = 16.0f;
-        entities.push_back(ve);
+        Velox_AddCircleCollider(world, ballId, 14.0f);
+        Velox_AddPhysicalMaterial(world, ballId, 0.1f, 0.05f, 0.7f);
+        g_sandboxShapes.push_back({ballId, 0, palette[i % 6], {}});
     }
 
-    // Spawn a couple of boxes too
-    for (int i = 0; i < 3; ++i) {
+    // Dynamic boxes interacting with wavy chain
+    for (int i = 0; i < 4; ++i) {
         auto boxId = Velox_CreateEntity(world);
-        Velox_AddTransform(world, boxId, 250.0f + i * 320.0f, 150.0f, 0.2f * i);
-        Velox_AddRigidBody(world, boxId, 1.5f, false);
+        Velox_AddTransform(world, boxId, 680.0f + i * 100.0f, 80.0f, 0.4f * i);
+        Velox_AddRigidBody(world, boxId, 1.0f, false);
         Velox_AddMovement(world, boxId);
-        Velox_AddBoxCollider(world, boxId, 35.0f, 35.0f);
-        Velox_SetDamping(world, boxId, 0.02f, 0.02f);
-        Velox_AddPhysicalMaterial(world, boxId, 0.5f, 0.3f, 0.3f);
-
-        VisualEntity ve; ve.id = boxId; ve.color = ORANGE;
-        ve.type = 1; ve.width = 35.0f; ve.height = 35.0f;
-        entities.push_back(ve);
+        Velox_AddBoxCollider(world, boxId, 26.0f, 26.0f);
+        Velox_AddPhysicalMaterial(world, boxId, 0.3f, 0.2f, 0.5f);
+        
+        std::vector<Vector2> bLocal = {
+            {-13.0f, -13.0f}, {13.0f, -13.0f}, {13.0f, 13.0f}, {-13.0f, 13.0f}
+        };
+        g_sandboxShapes.push_back({boxId, 2, palette[(i + 3) % 6], bLocal});
     }
 }
 
@@ -685,32 +696,36 @@ void SetupRaycastDemo(VeloxWorld* world, std::vector<VisualEntity>& entities, in
     AddScreenBoundaries(world, entities, screenWidth, screenHeight);
     g_sandboxShapes.clear();
     g_jointVisuals.clear();
+    Velox_SetGravity(world, 0.0f, 0.0f); // Zero gravity for static geometric raycast showcase
 
-    Velox_SetGravity(world, 0.0f, 0.0f); // Zero gravity for static obstacle showcase
+    // Targets to raycast against: circles and boxes scattered in the scene
+    struct TargetDef { float x, y; int type; float r, w, h; Color color; };
+    TargetDef targets[] = {
+        { screenWidth * 0.35f, screenHeight * 0.35f, 0, 45.0f, 0.0f, 0.0f, GOLD },
+        { screenWidth * 0.65f, screenHeight * 0.35f, 1, 0.0f, 70.0f, 70.0f, SKYBLUE },
+        { screenWidth * 0.50f, screenHeight * 0.65f, 0, 55.0f, 0.0f, 0.0f, GREEN },
+        { screenWidth * 0.75f, screenHeight * 0.65f, 1, 0.0f, 80.0f, 50.0f, ORANGE }
+    };
 
-    // 1. Static Circles
-    for (int i = 0; i < 3; ++i) {
-        auto targetId = Velox_CreateEntity(world);
-        Velox_AddTransform(world, targetId, screenWidth * 0.3f + i * 200.0f, screenHeight * 0.4f + (i % 2) * 80.0f, 0.0f);
-        Velox_AddRigidBody(world, targetId, 0.0f, true);
-        Velox_AddMovement(world, targetId);
-        Velox_AddCircleCollider(world, targetId, 40.0f);
+    for (const auto& t : targets) {
+        auto id = Velox_CreateEntity(world);
+        Velox_AddTransform(world, id, t.x, t.y, 0.0f);
+        Velox_AddRigidBody(world, id, 0.0f, true);
+        Velox_AddMovement(world, id);
+        
+        VisualEntity ve;
+        ve.id = id;
+        ve.color = t.color;
+        ve.type = t.type;
 
-        VisualEntity ve; ve.id = targetId; ve.color = MAROON;
-        ve.type = 0; ve.radius = 40.0f;
-        entities.push_back(ve);
-    }
-
-    // 2. Static Boxes
-    for (int i = 0; i < 2; ++i) {
-        auto targetId = Velox_CreateEntity(world);
-        Velox_AddTransform(world, targetId, screenWidth * 0.2f + i * 500.0f, screenHeight * 0.65f, 0.4f);
-        Velox_AddRigidBody(world, targetId, 0.0f, true);
-        Velox_AddMovement(world, targetId);
-        Velox_AddBoxCollider(world, targetId, 90.0f, 50.0f);
-
-        VisualEntity ve; ve.id = targetId; ve.color = DARKGREEN;
-        ve.type = 1; ve.width = 90.0f; ve.height = 50.0f;
+        if (t.type == 0) {
+            Velox_AddCircleCollider(world, id, t.r);
+            ve.radius = t.r;
+        } else {
+            Velox_AddBoxCollider(world, id, t.w, t.h);
+            ve.width = t.w;
+            ve.height = t.h;
+        }
         entities.push_back(ve);
     }
 }
@@ -720,66 +735,64 @@ void SetupRevolutePrismaticDemo(VeloxWorld* world, std::vector<VisualEntity>& en
     g_sandboxShapes.clear();
     g_jointVisuals.clear();
 
-    Velox_SetGravity(world, 0.0f, 300.0f);
+    Velox_SetGravity(world, 0.0f, 980.0f);
 
-    // --- 1. Revolute Hinge (Pin Joint) with motor ---
+    // --- 1. Revolute Joint with Motor & Angular Limits (Top-Left) ---
     {
-        float pinX = screenWidth * 0.25f;
-        float pinY = screenHeight * 0.3f;
-        
+        float rx = screenWidth * 0.22f;
+        float ry = screenHeight * 0.25f;
+
         auto pin = Velox_CreateEntity(world);
-        Velox_AddTransform(world, pin, pinX, pinY, 0.0f);
+        Velox_AddTransform(world, pin, rx, ry, 0.0f);
         Velox_AddRigidBody(world, pin, 0.0f, true);
-        Velox_AddMovement(world, pin);
-        Velox_AddCircleCollider(world, pin, 12.0f);
-        VisualEntity pinVe; pinVe.id = pin; pinVe.color = WHITE; pinVe.type = 0; pinVe.radius = 12.0f;
+        Velox_AddCircleCollider(world, pin, 10.0f);
+        VisualEntity pinVe; pinVe.id = pin; pinVe.color = WHITE; pinVe.type = 0; pinVe.radius = 10.0f;
         entities.push_back(pinVe);
 
-        auto blade = Velox_CreateEntity(world);
-        Velox_AddTransform(world, blade, pinX, pinY + 80.0f, 0.0f);
-        Velox_AddRigidBody(world, blade, 1.5f, false);
-        Velox_AddMovement(world, blade);
-        Velox_AddBoxCollider(world, blade, 20.0f, 150.0f);
-        VisualEntity bladeVe; bladeVe.id = blade; bladeVe.color = ORANGE; bladeVe.type = 1; bladeVe.width = 20.0f; bladeVe.height = 150.0f;
-        entities.push_back(bladeVe);
+        auto arm = Velox_CreateEntity(world);
+        Velox_AddTransform(world, arm, rx + 60.0f, ry, 0.0f);
+        Velox_AddRigidBody(world, arm, 2.0f, false);
+        Velox_AddMovement(world, arm);
+        Velox_AddBoxCollider(world, arm, 120.0f, 16.0f);
+        VisualEntity armVe; armVe.id = arm; armVe.color = ORANGE; armVe.type = 1; armVe.width = 120.0f; armVe.height = 16.0f;
+        entities.push_back(armVe);
 
-        // Hinge joint at pin position
-        Velox_AddRevoluteJoint(world, pin, blade, 0.0f, 0.0f, 0.0f, -80.0f, 0.0f, false, 0.0f, 0.0f, true, 1.5f, 25.0f);
-        g_jointVisuals.push_back({pin, blade, WHITE});
+        // Revolute Joint: limits enabled [-1.0, 1.0], motor enabled speed=3.0, maxTorque=25.0
+        Velox_AddRevoluteJoint(world, pin, arm, 0.0f, 0.0f, -60.0f, 0.0f, 0.0f, true, -1.0f, 1.0f, true, 3.0f, 25.0f);
+        g_jointVisuals.push_back({pin, arm, ORANGE});
     }
 
-    // --- 2. Prismatic Slider with limits ---
+    // --- 2. Prismatic Joint (Slider on track with motor, Top-Right canvas) ---
     {
-        float anchorX = screenWidth * 0.5f;
-        float anchorY = screenHeight * 0.3f;
+        float sx = screenWidth * 0.58f;
+        float sy = screenHeight * 0.25f;
 
         auto anchor = Velox_CreateEntity(world);
-        Velox_AddTransform(world, anchor, anchorX, anchorY, 0.0f);
+        Velox_AddTransform(world, anchor, sx, sy, 0.0f);
         Velox_AddRigidBody(world, anchor, 0.0f, true);
-        Velox_AddMovement(world, anchor);
-        Velox_AddBoxCollider(world, anchor, 40.0f, 40.0f);
-        VisualEntity anchorVe; anchorVe.id = anchor; anchorVe.color = WHITE; anchorVe.type = 1; anchorVe.width = 40.0f; anchorVe.height = 40.0f;
-        entities.push_back(anchorVe);
+        Velox_AddCircleCollider(world, anchor, 8.0f);
+        VisualEntity anchVe; anchVe.id = anchor; anchVe.color = WHITE; anchVe.type = 0; anchVe.radius = 8.0f;
+        entities.push_back(anchVe);
 
         auto slider = Velox_CreateEntity(world);
-        Velox_AddTransform(world, slider, anchorX + 60.0f, anchorY, 0.0f);
-        Velox_AddRigidBody(world, slider, 1.0f, false);
+        Velox_AddTransform(world, slider, sx, sy, 0.0f);
+        Velox_AddRigidBody(world, slider, 1.5f, false);
         Velox_AddMovement(world, slider);
-        Velox_AddBoxCollider(world, slider, 50.0f, 30.0f);
-        VisualEntity sliderVe; sliderVe.id = slider; sliderVe.color = SKYBLUE; sliderVe.type = 1; sliderVe.width = 50.0f; sliderVe.height = 30.0f;
-        entities.push_back(sliderVe);
+        Velox_AddBoxCollider(world, slider, 45.0f, 30.0f);
+        VisualEntity slidVe; slidVe.id = slider; slidVe.color = SKYBLUE; slidVe.type = 1; slidVe.width = 45.0f; slidVe.height = 30.0f;
+        entities.push_back(slidVe);
 
-        // Prismatic slider along horizontal axis (1.0f, 0.0f), with limits [-150, 150]
-        Velox_AddPrismaticJoint(world, anchor, slider, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, true, -150.0f, 150.0f, true, 80.0f, 10.0f);
-        g_jointVisuals.push_back({anchor, slider, GRAY});
+        // Prismatic along X axis: limits [-120, 120], motor speed=80.0 px/s
+        Velox_AddPrismaticJoint(world, anchor, slider, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, true, -120.0f, 120.0f, true, 80.0f, 50.0f);
+        g_jointVisuals.push_back({anchor, slider, SKYBLUE});
     }
 
-    // --- 3. Gear Joint coupling two revolute hinges ---
+    // --- 3. Gear Joint coupling two revolute hinges (Bottom-Left canvas) ---
     {
-        float g1X = screenWidth * 0.75f;
-        float g1Y = screenHeight * 0.3f;
-        float g2X = screenWidth * 0.75f + 100.0f;
-        float g2Y = g1Y;
+        float g1X = 220.0f;
+        float g1Y = 480.0f;
+        float g2X = 320.0f;
+        float g2Y = 480.0f;
 
         auto pin1 = Velox_CreateEntity(world);
         Velox_AddTransform(world, pin1, g1X, g1Y, 0.0f);
@@ -819,12 +832,12 @@ void SetupRevolutePrismaticDemo(VeloxWorld* world, std::vector<VisualEntity>& en
         Velox_AddGearJoint(world, wheel1, wheel2, -1.0f, 0.0f);
     }
 
-    // --- 4. Pulley Joint ---
+    // --- 4. Pulley Joint (Bottom-Center canvas) ---
     {
-        float leftX = screenWidth * 0.4f;
-        float rightX = screenWidth * 0.6f;
-        float groundY = screenHeight * 0.6f;
-        float weightY = screenHeight * 0.75f;
+        float leftX = 580.0f;
+        float rightX = 760.0f;
+        float groundY = 420.0f;
+        float weightY = 560.0f;
 
         auto weight1 = Velox_CreateEntity(world);
         Velox_AddTransform(world, weight1, leftX, weightY, 0.0f);
@@ -842,7 +855,7 @@ void SetupRevolutePrismaticDemo(VeloxWorld* world, std::vector<VisualEntity>& en
         VisualEntity w2Ve; w2Ve.id = weight2; w2Ve.color = MAGENTA; w2Ve.type = 1; w2Ve.width = 40.0f; w2Ve.height = 40.0f;
         entities.push_back(w2Ve);
 
-        Velox_AddPulleyJoint(world, weight1, weight2, leftX, groundY, rightX, groundY, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 300.0f, 0.0f);
+        Velox_AddPulleyJoint(world, weight1, weight2, leftX, groundY, rightX, groundY, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 320.0f, 0.0f);
     }
 }
 
@@ -880,7 +893,7 @@ void SetupSleepingShowcase(VeloxWorld* world, std::vector<VisualEntity>& entitie
     g_sandboxShapes.clear();
     g_jointVisuals.clear();
 
-    Velox_SetGravity(world, 0.0f, 400.0f);
+    Velox_SetGravity(world, 0.0f, 980.0f);
 
     // Build a stack of boxes
     float boxSize = 35.0f;
@@ -896,7 +909,7 @@ void SetupSleepingShowcase(VeloxWorld* world, std::vector<VisualEntity>& entitie
         Velox_AddMovement(world, box);
         Velox_AddBoxCollider(world, box, boxSize, boxSize);
         Velox_AddPhysicalMaterial(world, box, 0.9f, 0.8f, 0.0f); // High friction, zero bounce
-        Velox_SetDamping(world, box, 0.4f, 0.4f);
+        Velox_SetDamping(world, box, 0.2f, 0.2f);
 
         VisualEntity ve; ve.id = box; ve.color = GOLD; ve.type = 1; ve.width = boxSize; ve.height = boxSize;
         entities.push_back(ve);
@@ -908,7 +921,7 @@ void SetupSleepingShowcase(VeloxWorld* world, std::vector<VisualEntity>& entitie
     Velox_AddRigidBody(world, triggerBall, 10.0f, false);
     Velox_AddMovement(world, triggerBall);
     Velox_AddCircleCollider(world, triggerBall, 30.0f);
-    Velox_SetVelocity(world, triggerBall, 350.0f, -50.0f);
+    Velox_SetVelocity(world, triggerBall, 450.0f, -50.0f);
     
     VisualEntity tbVe; tbVe.id = triggerBall; tbVe.color = ORANGE; tbVe.type = 0; tbVe.radius = 30.0f;
     entities.push_back(tbVe);
@@ -950,7 +963,7 @@ void SetupSoftBodySandbox(VeloxWorld* world, std::vector<VisualEntity>& entities
     g_softBodyVisuals.clear();
     g_jointVisuals.clear();
 
-    Velox_SetGravity(world, 0.0f, 400.0f);
+    Velox_SetGravity(world, 0.0f, 900.0f);
 
     // 1. Static obstacles to bounce off
     auto circleObstacle = Velox_CreateEntity(world);
@@ -998,7 +1011,7 @@ void SetupSoftBodyFunnel(VeloxWorld* world, std::vector<VisualEntity>& entities,
     g_softBodyVisuals.clear();
     g_jointVisuals.clear();
 
-    Velox_SetGravity(world, 0.0f, 450.0f);
+    Velox_SetGravity(world, 0.0f, 950.0f);
 
     // Funnel Dimensions
     float wallH = 25.0f;
@@ -1050,7 +1063,7 @@ void SetupSoftBodyStacking(VeloxWorld* world, std::vector<VisualEntity>& entitie
     g_softBodyVisuals.clear();
     g_jointVisuals.clear();
 
-    Velox_SetGravity(world, 0.0f, 400.0f);
+    Velox_SetGravity(world, 0.0f, 980.0f);
 
     // Large Blob at bottom serving as soft mattress
     auto mattress = Velox_CreateSoftBodyBlob(world, screenWidth * 0.5f, screenHeight * 0.75f, 90.0f, 20, 0.02f, 0.03f, 12.0f);
@@ -1082,6 +1095,193 @@ void SetupSoftBodyStacking(VeloxWorld* world, std::vector<VisualEntity>& entitie
     entities.push_back({ball, ORANGE, 35.0f, 0.0f, 0.0f, 0, 0.0f, false, nullptr});
 }
 
+void SetupBuoyancyWaterTank(VeloxWorld* world, std::vector<VisualEntity>& entities, int screenWidth, int screenHeight) {
+    AddScreenBoundaries(world, entities, screenWidth, screenHeight);
+    g_softBodyVisuals.clear();
+    g_jointVisuals.clear();
+    Velox_SetGravity(world, 0.0f, 850.0f);
+
+    // Floating boats & buoyant balls
+    for (int i = 0; i < 4; ++i) {
+        auto boat = Velox_CreateEntity(world);
+        float bx = screenWidth * (0.2f + i * 0.18f);
+        float by = screenHeight * 0.45f;
+        Velox_AddTransform(world, boat, bx, by, 0.0f);
+        Velox_AddRigidBody(world, boat, 2.0f, false);
+        Velox_AddMovement(world, boat);
+        Velox_AddBoxCollider(world, boat, 60.0f, 20.0f);
+        Velox_AddPhysicalMaterial(world, boat, 0.6f, 0.4f, 0.2f);
+        entities.push_back({boat, GOLD, 0.0f, 60.0f, 20.0f, 1, 0.0f, false, nullptr});
+
+        auto ball = Velox_CreateEntity(world);
+        Velox_AddTransform(world, ball, bx + 20.0f, by - 80.0f, 0.0f);
+        Velox_AddRigidBody(world, ball, 1.0f, false);
+        Velox_AddMovement(world, ball);
+        Velox_AddCircleCollider(world, ball, 14.0f);
+        Velox_AddPhysicalMaterial(world, ball, 0.8f, 0.2f, 0.6f);
+        entities.push_back({ball, SKYBLUE, 14.0f, 0.0f, 0.0f, 0, 0.0f, false, nullptr});
+    }
+}
+
+void SetupChaosDestruction(VeloxWorld* world, std::vector<VisualEntity>& entities, int screenWidth, int screenHeight) {
+    AddScreenBoundaries(world, entities, screenWidth, screenHeight);
+    g_softBodyVisuals.clear();
+    g_jointVisuals.clear();
+    Velox_SetGravity(world, 0.0f, 980.0f);
+
+    // Giant stacked pyramid and lattice (True 1,000 bodies)
+    int cols = 40;
+    int rows = 25;
+    float blockW = 10.0f;
+    float blockH = 10.0f;
+    float startY = screenHeight - 50.0f;
+    float startX = screenWidth * 0.45f;
+
+    Color palette[] = { RED, ORANGE, YELLOW, GREEN, SKYBLUE, PURPLE, PINK };
+
+    for (int r = 0; r < rows; ++r) {
+        float rowY = startY - (r * (blockH + 1.5f));
+        for (int c = 0; c < cols; ++c) {
+            auto b = Velox_CreateEntity(world);
+            float bx = startX + (c * (blockW + 1.5f));
+            Velox_AddTransform(world, b, bx, rowY, 0.0f);
+            Velox_AddRigidBody(world, b, 1.0f, false);
+            Velox_AddMovement(world, b);
+            Velox_AddBoxCollider(world, b, blockW, blockH);
+            Velox_AddPhysicalMaterial(world, b, 0.5f, 0.3f, 0.1f);
+            entities.push_back({b, palette[(r + c) % 7], 0.0f, blockW, blockH, 1, 0.0f, false, nullptr});
+        }
+    }
+
+    // Heavy Wrecking Ball suspended by a flexible multi-link chain from ceiling
+    float anchorX = screenWidth * 0.22f;
+    float anchorY = 80.0f;
+    auto anchor = Velox_CreateEntity(world);
+    Velox_AddTransform(world, anchor, anchorX, anchorY, 0.0f);
+    Velox_AddRigidBody(world, anchor, 0.0f, true);
+
+    Velox::EntityID prevLink = anchor;
+    int numLinks = 4;
+    float segLen = 45.0f;
+
+    for (int i = 0; i < numLinks; ++i) {
+        auto link = Velox_CreateEntity(world);
+        float lx = anchorX + (i + 1) * 35.0f;
+        float ly = anchorY + (i + 1) * 20.0f;
+        Velox_AddTransform(world, link, lx, ly, 0.0f);
+        Velox_AddRigidBody(world, link, 0.5f, false);
+        Velox_AddMovement(world, link);
+        Velox_AddCircleCollider(world, link, 6.0f);
+        Velox_SetDamping(world, link, 0.2f, 0.2f);
+        entities.push_back({link, LIGHTGRAY, 6.0f, 0.0f, 0.0f, 0, 0.0f, false, nullptr});
+
+        Velox_AddDistanceJoint(world, prevLink, link, 0.0f, 0.0f, 0.0f, 0.0f, segLen, 0.0f);
+        g_jointVisuals.push_back({prevLink, link, WHITE});
+        prevLink = link;
+    }
+
+    auto wreckingBall = Velox_CreateEntity(world);
+    Velox_AddTransform(world, wreckingBall, anchorX + (numLinks + 1) * 35.0f, anchorY + (numLinks + 1) * 20.0f, 0.0f);
+    Velox_AddRigidBody(world, wreckingBall, 40.0f, false);
+    Velox_AddMovement(world, wreckingBall);
+    Velox_SetVelocity(world, wreckingBall, 300.0f, 0.0f);
+    Velox_AddCircleCollider(world, wreckingBall, 30.0f);
+    Velox_AddPhysicalMaterial(world, wreckingBall, 0.8f, 0.2f, 0.4f);
+    entities.push_back({wreckingBall, MAROON, 30.0f, 0.0f, 0.0f, 0, 0.0f, false, nullptr});
+
+    Velox_AddDistanceJoint(world, prevLink, wreckingBall, 0.0f, 0.0f, 0.0f, 0.0f, segLen, 0.0f);
+    g_jointVisuals.push_back({prevLink, wreckingBall, WHITE});
+}
+
+void SetupRagdollNetwork(VeloxWorld* world, std::vector<VisualEntity>& entities, int screenWidth, int screenHeight) {
+    AddScreenBoundaries(world, entities, screenWidth, screenHeight);
+    g_softBodyVisuals.clear();
+    g_jointVisuals.clear();
+    Velox_SetGravity(world, 0.0f, 1800.0f); // Fast, realistic downward gravity
+
+    // Create 3 Ragdolls dropping onto obstacle pegs
+    for (int r = 0; r < 3; ++r) {
+        float rx = screenWidth * (0.28f + r * 0.22f);
+        float ry = screenHeight * 0.15f + r * 30.0f;
+
+        // Head
+        auto head = Velox_CreateEntity(world);
+        Velox_AddTransform(world, head, rx, ry, 0.0f);
+        Velox_AddRigidBody(world, head, 1.0f, false);
+        Velox_AddMovement(world, head);
+        Velox_SetDamping(world, head, 0.005f, 0.01f);
+        Velox_AddCircleCollider(world, head, 10.0f);
+        entities.push_back({head, BEIGE, 10.0f, 0.0f, 0.0f, 0, 0.0f, false, nullptr});
+
+        // Torso
+        auto torso = Velox_CreateEntity(world);
+        Velox_AddTransform(world, torso, rx, ry + 22.0f, 0.0f);
+        Velox_AddRigidBody(world, torso, 3.0f, false);
+        Velox_AddMovement(world, torso);
+        Velox_SetDamping(world, torso, 0.005f, 0.01f);
+        Velox_AddBoxCollider(world, torso, 14.0f, 24.0f);
+        entities.push_back({torso, BLUE, 0.0f, 14.0f, 24.0f, 1, 0.0f, false, nullptr});
+
+        // Left Arm
+        auto larm = Velox_CreateEntity(world);
+        Velox_AddTransform(world, larm, rx - 14.0f, ry + 16.0f, 0.0f);
+        Velox_AddRigidBody(world, larm, 0.5f, false);
+        Velox_AddMovement(world, larm);
+        Velox_SetDamping(world, larm, 0.005f, 0.01f);
+        Velox_AddBoxCollider(world, larm, 14.0f, 6.0f);
+        entities.push_back({larm, SKYBLUE, 0.0f, 14.0f, 6.0f, 1, 0.0f, false, nullptr});
+
+        // Right Arm
+        auto rarm = Velox_CreateEntity(world);
+        Velox_AddTransform(world, rarm, rx + 14.0f, ry + 16.0f, 0.0f);
+        Velox_AddRigidBody(world, rarm, 0.5f, false);
+        Velox_AddMovement(world, rarm);
+        Velox_SetDamping(world, rarm, 0.005f, 0.01f);
+        Velox_AddBoxCollider(world, rarm, 14.0f, 6.0f);
+        entities.push_back({rarm, SKYBLUE, 0.0f, 14.0f, 6.0f, 1, 0.0f, false, nullptr});
+
+        // Left Leg
+        auto lleg = Velox_CreateEntity(world);
+        Velox_AddTransform(world, lleg, rx - 6.0f, ry + 42.0f, 0.0f);
+        Velox_AddRigidBody(world, lleg, 0.8f, false);
+        Velox_AddMovement(world, lleg);
+        Velox_SetDamping(world, lleg, 0.005f, 0.01f);
+        Velox_AddBoxCollider(world, lleg, 6.0f, 18.0f);
+        entities.push_back({lleg, DARKBLUE, 0.0f, 6.0f, 18.0f, 1, 0.0f, false, nullptr});
+
+        // Right Leg
+        auto rleg = Velox_CreateEntity(world);
+        Velox_AddTransform(world, rleg, rx + 6.0f, ry + 42.0f, 0.0f);
+        Velox_AddRigidBody(world, rleg, 0.8f, false);
+        Velox_AddMovement(world, rleg);
+        Velox_SetDamping(world, rleg, 0.005f, 0.01f);
+        Velox_AddBoxCollider(world, rleg, 6.0f, 18.0f);
+        entities.push_back({rleg, DARKBLUE, 0.0f, 6.0f, 18.0f, 1, 0.0f, false, nullptr});
+
+        // Revolute Joints with limits
+        Velox_AddRevoluteJoint(world, torso, head, 0.0f, -12.0f, 0.0f, 10.0f, 0.0f, true, -0.5f, 0.5f, false, 0, 0);
+        Velox_AddRevoluteJoint(world, torso, larm, -7.0f, -6.0f, 7.0f, 0.0f, 0.0f, true, -1.2f, 1.2f, false, 0, 0);
+        Velox_AddRevoluteJoint(world, torso, rarm, 7.0f, -6.0f, -7.0f, 0.0f, 0.0f, true, -1.2f, 1.2f, false, 0, 0);
+        Velox_AddRevoluteJoint(world, torso, lleg, -4.0f, 12.0f, 0.0f, -9.0f, 0.0f, true, -1.0f, 1.0f, false, 0, 0);
+        Velox_AddRevoluteJoint(world, torso, rleg, 4.0f, 12.0f, 0.0f, -9.0f, 0.0f, true, -1.0f, 1.0f, false, 0, 0);
+        
+        g_jointVisuals.push_back({torso, head, YELLOW});
+        g_jointVisuals.push_back({torso, larm, YELLOW});
+        g_jointVisuals.push_back({torso, rarm, YELLOW});
+        g_jointVisuals.push_back({torso, lleg, YELLOW});
+        g_jointVisuals.push_back({torso, rleg, YELLOW});
+    }
+
+    // Pegs on floor for ragdolls to tumble on
+    for (int p = 0; p < 5; ++p) {
+        auto peg = Velox_CreateEntity(world);
+        Velox_AddTransform(world, peg, screenWidth * (0.2f + p * 0.15f), screenHeight * 0.6f + (p % 2) * 40.0f, 0.0f);
+        Velox_AddRigidBody(world, peg, 0.0f, true);
+        Velox_AddCircleCollider(world, peg, 14.0f);
+        entities.push_back({peg, LIGHTGRAY, 14.0f, 0.0f, 0.0f, 0, 0.0f, false, nullptr});
+    }
+}
+
 int main() {
     // Initialization
     const int screenWidth = 1280;
@@ -1102,6 +1302,7 @@ int main() {
 
     bool paused = false;
     float frameRotation = 0.0f; 
+    double g_stepTimeUs = 0.0;
 
     // Main game loop
     while (!WindowShouldClose()) {
@@ -1110,6 +1311,8 @@ int main() {
             if (world) Velox_DestroyWorld(world);
             world = Velox_CreateWorld();
             entities.clear();
+            g_sandboxShapes.clear();
+            g_jointVisuals.clear();
             g_softBodyVisuals.clear();
             frameRotation = 0.0f;
 
@@ -1158,12 +1361,49 @@ int main() {
             } else if (currentScene == SceneType::SoftBodyStacking) {
                 std::cout << "[SCENE] Loading scene: Cushion Stacking Showcase" << std::endl;
                 SetupSoftBodyStacking(world, entities, screenWidth, screenHeight);
+            } else if (currentScene == SceneType::BuoyancyWaterTank) {
+                std::cout << "[SCENE] Loading scene: Buoyancy Water Tank" << std::endl;
+                SetupBuoyancyWaterTank(world, entities, screenWidth, screenHeight);
+            } else if (currentScene == SceneType::ChaosDestruction) {
+                std::cout << "[SCENE] Loading scene: 1,000-Body Chaos Destruction" << std::endl;
+                SetupChaosDestruction(world, entities, screenWidth, screenHeight);
+            } else if (currentScene == SceneType::RagdollNetwork) {
+                std::cout << "[SCENE] Loading scene: Articulated Ragdoll Network" << std::endl;
+                SetupRagdollNetwork(world, entities, screenWidth, screenHeight);
             }
             sceneChanged = false;
         }
 
         // Input
         if (IsKeyPressed(KEY_SPACE)) paused = !paused;
+
+        // Scene Switching Hotkeys (1-9, 0, Q-I)
+        int keyIndex = -1;
+        if (IsKeyPressed(KEY_ONE)) keyIndex = 0;
+        else if (IsKeyPressed(KEY_TWO)) keyIndex = 1;
+        else if (IsKeyPressed(KEY_THREE)) keyIndex = 2;
+        else if (IsKeyPressed(KEY_FOUR)) keyIndex = 3;
+        else if (IsKeyPressed(KEY_FIVE)) keyIndex = 4;
+        else if (IsKeyPressed(KEY_SIX)) keyIndex = 5;
+        else if (IsKeyPressed(KEY_SEVEN)) keyIndex = 6;
+        else if (IsKeyPressed(KEY_EIGHT)) keyIndex = 7;
+        else if (IsKeyPressed(KEY_NINE)) keyIndex = 8;
+        else if (IsKeyPressed(KEY_ZERO)) keyIndex = 9;
+        else if (IsKeyPressed(KEY_Q)) keyIndex = 10;
+        else if (IsKeyPressed(KEY_W)) keyIndex = 11;
+        else if (IsKeyPressed(KEY_E)) keyIndex = 12;
+        else if (IsKeyPressed(KEY_R)) keyIndex = 13;
+        else if (IsKeyPressed(KEY_T)) keyIndex = 14;
+        else if (IsKeyPressed(KEY_Y)) keyIndex = 15;
+        else if (IsKeyPressed(KEY_U)) keyIndex = 16;
+        else if (IsKeyPressed(KEY_I)) keyIndex = 17;
+
+        if (keyIndex >= 0 && keyIndex < 18) {
+            selectedItem = keyIndex;
+            currentScene = (SceneType)keyIndex;
+            sceneChanged = true;
+            isDropdownOpen = false;
+        }
         
         // Mouse Spawning (Force Field Demo)
         if (currentScene == SceneType::ForceFieldDemo && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
@@ -1218,16 +1458,15 @@ int main() {
             entities.push_back(ve);
         }
         
-        // Directional Gravity control (Gravity Demo) — WASD rotates gravity direction
+        // Directional Gravity control (Gravity Demo) — WASD / Arrows rotate gravity direction
         if (currentScene == SceneType::GravityDemo) {
-            static float gravAngle = 1.5708f; // pi/2 = straight down
-            float rotSpeed = 2.0f * (1.0f / 60.0f);
-            if (IsKeyDown(KEY_A)) gravAngle -= rotSpeed * 2.0f;
-            if (IsKeyDown(KEY_D)) gravAngle += rotSpeed * 2.0f;
-            if (IsKeyPressed(KEY_W)) gravAngle = -1.5708f; // straight up
-            if (IsKeyPressed(KEY_S)) gravAngle =  1.5708f; // straight down
-            float gMag = 980.0f;
-            Velox_SetGravity(world, cosf(gravAngle) * gMag, sinf(gravAngle) * gMag);
+            float rotSpeed = 2.5f * (1.0f / 60.0f);
+            if (IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT)) g_gravAngle -= rotSpeed * 2.0f;
+            if (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT)) g_gravAngle += rotSpeed * 2.0f;
+            if (IsKeyPressed(KEY_W) || IsKeyPressed(KEY_UP)) g_gravAngle = -1.5708f; // straight up
+            if (IsKeyPressed(KEY_S) || IsKeyPressed(KEY_DOWN)) g_gravAngle =  1.5708f; // straight down
+            float gMag = 1100.0f;
+            Velox_SetGravity(world, cosf(g_gravAngle) * gMag, sinf(g_gravAngle) * gMag);
         }
 
         // Frame Rotation (Only for Bouncing Balls)
@@ -1323,24 +1562,24 @@ int main() {
 
                 funnelSpawnTimer += dt;
                 
-                // Spawn one body every 1.0 second, up to 4 soft bodies
-                if (funnelSpawnTimer >= 1.0f && nextFunnelSpawnIndex < 4) {
+                // Spawn one body every 1.5 seconds, up to 4 soft bodies
+                if (funnelSpawnTimer >= 1.5f && nextFunnelSpawnIndex < 4) {
                     funnelSpawnTimer = 0.0f;
                     float spawnX = screenWidth * 0.5f; // Vertical center line
-                    float spawnY = screenHeight * 0.08f; // Spawning height above funnel
+                    float spawnY = 85.0f; // Safely below ceiling (40px) and above funnel mouth (158px)
 
                     if (nextFunnelSpawnIndex == 0) {
                         // Spawn 1st Blob (Orange)
-                        auto blob1 = Velox_CreateSoftBodyBlob(world, spawnX, spawnY, 45.0f, 12, 0.04f, 0.05f, 9.0f);
+                        auto blob1 = Velox_CreateSoftBodyBlob(world, spawnX, spawnY, 35.0f, 10, 0.04f, 0.05f, 9.0f);
                         SoftBodyVisual sbv1;
                         sbv1.managerId = blob1;
                         sbv1.color = ORANGE;
-                        for (int i = 0; i < 12; ++i) sbv1.nodes.push_back(Velox_GetSoftBodyNode(world, blob1, i));
+                        for (int i = 0; i < 10; ++i) sbv1.nodes.push_back(Velox_GetSoftBodyNode(world, blob1, i));
                         g_softBodyVisuals.push_back(sbv1);
                     } else if (nextFunnelSpawnIndex == 1) {
                         // Spawn 1st Star (Pink)
-                        float starVertsX[] = { 0, 15, 50, 22, 35, 0, -35, -22, -50, -15 };
-                        float starVertsY[] = { -50, -15, -15, 8, 42, 22, 42, 8, -15, -15 };
+                        float starVertsX[] = { 0, 12, 38, 18, 28, 0, -28, -18, -38, -12 };
+                        float starVertsY[] = { -38, -12, -12, 6, 32, 18, 32, 6, -12, -12 };
                         auto star1 = Velox_CreateSoftBodyShapeMatched(world, spawnX, spawnY, starVertsX, starVertsY, 10, 0.02f, 8.0f);
                         SoftBodyVisual sbv2;
                         sbv2.managerId = star1;
@@ -1349,16 +1588,16 @@ int main() {
                         g_softBodyVisuals.push_back(sbv2);
                     } else if (nextFunnelSpawnIndex == 2) {
                         // Spawn 2nd Blob (Green)
-                        auto blob2 = Velox_CreateSoftBodyBlob(world, spawnX, spawnY, 40.0f, 12, 0.04f, 0.05f, 9.0f);
+                        auto blob2 = Velox_CreateSoftBodyBlob(world, spawnX, spawnY, 32.0f, 10, 0.04f, 0.05f, 9.0f);
                         SoftBodyVisual sbv3;
                         sbv3.managerId = blob2;
                         sbv3.color = GREEN;
-                        for (int i = 0; i < 12; ++i) sbv3.nodes.push_back(Velox_GetSoftBodyNode(world, blob2, i));
+                        for (int i = 0; i < 10; ++i) sbv3.nodes.push_back(Velox_GetSoftBodyNode(world, blob2, i));
                         g_softBodyVisuals.push_back(sbv3);
                     } else if (nextFunnelSpawnIndex == 3) {
                         // Spawn 2nd Star/Shape (Blue)
-                        float hexVertsX[] = { 0, 35, 35, 0, -35, -35 };
-                        float hexVertsY[] = { -40, -20, 20, 40, 20, -20 };
+                        float hexVertsX[] = { 0, 28, 28, 0, -28, -28 };
+                        float hexVertsY[] = { -32, -16, 16, 32, 16, -16 };
                         auto star2 = Velox_CreateSoftBodyShapeMatched(world, spawnX, spawnY, hexVertsX, hexVertsY, 6, 0.03f, 8.0f);
                         SoftBodyVisual sbv4;
                         sbv4.managerId = star2;
@@ -1370,20 +1609,89 @@ int main() {
                 }
             }
 
+            // --- Buoyancy Water Tank Simulation Logic ---
+            if (currentScene == SceneType::BuoyancyWaterTank) {
+                float waterY = screenHeight * 0.5f;
+                for (auto& ve : entities) {
+                    if (ve.type == 0 || (ve.type == 1 && ve.color.r != GRAY.r)) { // Dynamic circle or non-wall box
+                        float x, y, rot;
+                        Velox_GetPosition(world, ve.id, &x, &y, &rot);
+                        if (y > waterY) {
+                            float depth = y - waterY;
+                            float buoyancy = -depth * 40.0f; // Upward restoring force
+                            float vx, vy, vrot;
+                            Velox_GetVelocity(world, ve.id, &vx, &vy, &vrot);
+                            vy += (buoyancy * dt) - (vy * 0.06f); // Water viscous drag
+                            vx *= 0.98f;
+                            Velox_SetVelocity(world, ve.id, vx, vy);
+                        }
+                    }
+                }
+
+                if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+                    Vector2 mouse = GetMousePosition();
+                    if (mouse.x > 50 && mouse.x < screenWidth - 360) {
+                        auto ball = Velox_CreateEntity(world);
+                        Velox_AddTransform(world, ball, mouse.x, mouse.y, 0.0f);
+                        Velox_AddRigidBody(world, ball, 1.0f, false);
+                        Velox_AddMovement(world, ball);
+                        Velox_AddCircleCollider(world, ball, 14.0f);
+                        Velox_AddPhysicalMaterial(world, ball, 0.8f, 0.2f, 0.6f);
+                        entities.push_back({ball, ORANGE, 14.0f, 0.0f, 0.0f, 0, 0.0f, false, nullptr});
+                    }
+                }
+            }
+
+            // --- Chaos & Destruction Wrecking Ball Drag ---
+            if (currentScene == SceneType::ChaosDestruction) {
+                if (IsMouseButtonDown(MOUSE_LEFT_BUTTON)) {
+                    Vector2 mouse = GetMousePosition();
+                    if (mouse.x > 50 && mouse.x < screenWidth - 360) {
+                        for (auto& ve : entities) {
+                            if (ve.color.r == MAROON.r && ve.color.g == MAROON.g && ve.color.b == MAROON.b) {
+                                Velox_AddTransform(world, ve.id, mouse.x, mouse.y, 0.0f);
+                                Velox_SetVelocity(world, ve.id, 0.0f, 0.0f);
+                            }
+                        }
+                    }
+                }
+            }
+
+            auto stepStart = std::chrono::high_resolution_clock::now();
             Velox_Step(world, dt);
+            auto stepEnd = std::chrono::high_resolution_clock::now();
+            double curStepUs = std::chrono::duration<double, std::micro>(stepEnd - stepStart).count();
+            g_stepTimeUs = g_stepTimeUs * 0.9 + curStepUs * 0.1; // Smooth
         }
 
         // Draw
         BeginDrawing();
             ClearBackground(Color{15, 15, 20, 255}); // Dark Mode
 
+            // --- Draw Buoyancy Water Tank Overlay ---
+            if (currentScene == SceneType::BuoyancyWaterTank) {
+                DrawRectangle(0, (int)(screenHeight * 0.5f), screenWidth, (int)(screenHeight * 0.5f), Fade(BLUE, 0.25f));
+                DrawLineEx({0, screenHeight * 0.5f}, {(float)screenWidth, screenHeight * 0.5f}, 2.0f, SKYBLUE);
+                DrawText("Water Surface Level (Buoyancy Field)", 40, (int)(screenHeight * 0.5f) - 18, 11, SKYBLUE);
+            }
+
             // --- Draw Distance Joints ---
-            if (currentScene == SceneType::JointDemo) {
+            if (currentScene == SceneType::JointDemo || currentScene == SceneType::ChaosDestruction) {
                 for (const auto& jv : g_jointVisuals) {
                     float ax, ay, ar, bx, by, br;
                     Velox_GetPosition(world, jv.idA, &ax, &ay, &ar);
                     Velox_GetPosition(world, jv.idB, &bx, &by, &br);
                     DrawLineEx({ax, ay}, {bx, by}, 2.5f, jv.color);
+                }
+            }
+
+            // --- Draw Ragdoll Articulated Skeleton ---
+            if (currentScene == SceneType::RagdollNetwork) {
+                for (const auto& jv : g_jointVisuals) {
+                    float ax, ay, ar, bx, by, br;
+                    Velox_GetPosition(world, jv.idA, &ax, &ay, &ar);
+                    Velox_GetPosition(world, jv.idB, &bx, &by, &br);
+                    DrawLineEx({ax, ay}, {bx, by}, 2.0f, Fade(YELLOW, 0.7f));
                 }
             }
 
@@ -1397,18 +1705,18 @@ int main() {
                 }
 
                 // 1. Draw Prismatic Slider Rail
-                float railY = screenHeight * 0.3f;
-                float railMinX = screenWidth * 0.5f - 150.0f;
-                float railMaxX = screenWidth * 0.5f + 150.0f;
+                float railY = screenHeight * 0.25f;
+                float railMinX = screenWidth * 0.58f - 140.0f;
+                float railMaxX = screenWidth * 0.58f + 140.0f;
                 DrawLineEx({railMinX, railY}, {railMaxX, railY}, 2.0f, Fade(SKYBLUE, 0.4f));
                 DrawCircleV({railMinX, railY}, 4.0f, SKYBLUE);
                 DrawCircleV({railMaxX, railY}, 4.0f, SKYBLUE);
                 DrawText("Slider Axis Guide", (int)railMinX, (int)railY - 15, 10, SKYBLUE);
 
                 // 2. Draw Pulley Cables
-                float leftX = screenWidth * 0.4f;
-                float rightX = screenWidth * 0.6f;
-                float groundY = screenHeight * 0.6f;
+                float leftX = 580.0f;
+                float rightX = 760.0f;
+                float groundY = 420.0f;
 
                 float w1x = 0, w1y = 0, w2x = 0, w2y = 0;
                 for (const auto& ve : entities) {
@@ -1435,27 +1743,21 @@ int main() {
                 }
 
                 // 3. Draw Labels for clarity
-                DrawText("Revolute Hinge", (int)(screenWidth * 0.25f) - 40, (int)(screenHeight * 0.3f) - 60, 11, ORANGE);
-                DrawText("Prismatic Slider", (int)(screenWidth * 0.5f) - 40, (int)(screenHeight * 0.3f) - 60, 11, SKYBLUE);
-                DrawText("Coupled Gears", (int)(screenWidth * 0.75f) - 30, (int)(screenHeight * 0.3f) - 60, 11, GREEN);
-                DrawText("Pulley System", (int)(screenWidth * 0.5f) - 40, (int)(screenHeight * 0.6f) - 30, 11, PURPLE);
+                DrawText("Revolute Hinge", (int)(screenWidth * 0.22f) - 40, (int)(screenHeight * 0.25f) - 60, 11, ORANGE);
+                DrawText("Prismatic Slider", (int)(screenWidth * 0.58f) - 40, (int)(screenHeight * 0.25f) - 60, 11, SKYBLUE);
+                DrawText("Coupled Gears", 220, 400, 11, GREEN);
+                DrawText("Pulley System", 620, 380, 11, PURPLE);
             }
 
             // --- Draw Gravity Arrow (Gravity Demo) ---
             if (currentScene == SceneType::GravityDemo) {
-                static float gravAngle = 1.5708f;
-                // Re-read from controls (kept in sync via same static)
-                float gx = 0.0f, gy = 0.0f;
-                if (IsKeyDown(KEY_A)) gravAngle -= 2.0f * (1.0f/60.0f) * 2.0f;
-                if (IsKeyDown(KEY_D)) gravAngle += 2.0f * (1.0f/60.0f) * 2.0f;
-                // Draw arrow
                 float cx = 100.0f, cy = 660.0f;
                 float len = 60.0f;
-                float ex = cx + cosf(gravAngle) * len;
-                float ey = cy + sinf(gravAngle) * len;
-                DrawLineEx({cx, cy}, {ex, ey}, 3.0f, {255, 220, 60, 220});
-                DrawCircleV({ex, ey}, 7.0f, {255, 220, 60, 255});
-                DrawText("Gravity", (int)cx - 30, (int)cy + 12, 10, {255, 220, 60, 200});
+                float ex = cx + cosf(g_gravAngle) * len;
+                float ey = cy + sinf(g_gravAngle) * len;
+                DrawLineEx({cx, cy}, {ex, ey}, 3.5f, {255, 220, 60, 220});
+                DrawCircleV({ex, ey}, 7.5f, {255, 220, 60, 255});
+                DrawText("Gravity Vector (Manual [A/D/W/S/Arrows])", (int)cx - 40, (int)cy + 14, 10, {255, 220, 60, 220});
             }
 
             // --- Draw Sandbox & Chain Shapes (Polygons & Chains) ---
@@ -1466,16 +1768,32 @@ int main() {
                     
                     if (sb.type == 0) { // Circle
                         DrawCircleV({x, y}, 10.0f, sb.color);
-                    } else if (sb.type == 2) { // Polygon
+                    } else if (sb.type == 2) { // Polygon / Box
                         int count = sb.pts.size();
-                        for (int i = 0; i < count; ++i) {
-                            Vector2 localP1 = sb.pts[i];
-                            Vector2 localP2 = sb.pts[(i + 1) % count];
+                        if (count >= 3) {
+                            std::vector<Vector2> worldVerts(count);
                             float cosRot = std::cos(rot);
                             float sinRot = std::sin(rot);
-                            Vector2 p1 = { x + (localP1.x * cosRot - localP1.y * sinRot), y + (localP1.x * sinRot + localP1.y * cosRot) };
-                            Vector2 p2 = { x + (localP2.x * cosRot - localP2.y * sinRot), y + (localP2.x * sinRot + localP2.y * cosRot) };
-                            DrawLineEx(p1, p2, 2.5f, sb.color);
+                            Vector2 polyCenter = {0.0f, 0.0f};
+
+                            for (int i = 0; i < count; ++i) {
+                                Vector2 lp = sb.pts[i];
+                                worldVerts[i] = { x + (lp.x * cosRot - lp.y * sinRot), y + (lp.x * sinRot + lp.y * cosRot) };
+                                polyCenter.x += worldVerts[i].x;
+                                polyCenter.y += worldVerts[i].y;
+                            }
+                            polyCenter.x /= (float)count;
+                            polyCenter.y /= (float)count;
+
+                            // Fill interior with semi-transparent tint
+                            for (int i = 0; i < count; ++i) {
+                                DrawTriangle(polyCenter, worldVerts[i], worldVerts[(i + 1) % count], Fade(sb.color, 0.35f));
+                            }
+
+                            // Draw perimeter border
+                            for (int i = 0; i < count; ++i) {
+                                DrawLineEx(worldVerts[i], worldVerts[(i + 1) % count], 2.5f, sb.color);
+                            }
                         }
                     } else if (sb.type == 3) { // Chain
                         int count = sb.pts.size();
@@ -1512,131 +1830,187 @@ int main() {
                     DrawCircleV({x - ve.radius*0.25f, y - ve.radius*0.25f}, ve.radius*0.35f, Fade(WHITE, 0.25f));
                     DrawLineEx({x, y}, {x + cosf(rot)*ve.radius, y + sinf(rot)*ve.radius}, 2.0f, Fade(BLACK, 0.5f));
                 } else if (ve.type == 1) { // Box
-                    DrawRectanglePro({x, y, ve.width, ve.height}, {ve.width/2, ve.height/2}, rot * RAD2DEG, drawColor);
-                } else if (ve.type == 2) { // Force Field (visual)
-                    DrawCircleV({x, y}, ve.radius, ve.color);
-                    DrawCircleLines((int)x, (int)y, (int)ve.radius, Fade(WHITE, 0.6f));
+                    Rectangle rect = { x, y, ve.width, ve.height };
+                    Vector2 origin = { ve.width / 2.0f, ve.height / 2.0f };
+                    DrawRectanglePro(rect, origin, rot * RAD2DEG, drawColor);
+                } else if (ve.type == 2) { // Force Field (Visual only)
+                    DrawCircleLines((int)x, (int)y, ve.radius, Fade(ve.color, 0.5f));
+                    DrawCircle((int)x, (int)y, ve.radius * 0.1f, Fade(ve.color, 0.7f));
+                    if (ve.label) {
+                        DrawText(ve.label, (int)x - 20, (int)y - 5, 10, WHITE);
+                    }
                 }
             }
+
+            // --- Draw Soft Bodies (Render deform meshes) ---
             for (const auto& sbv : g_softBodyVisuals) {
-                DrawSoftBodyVisual(world, sbv);
+                int nodeCount = sbv.nodes.size();
+                if (nodeCount == 0) continue;
+
+                std::vector<Vector2> worldPts(nodeCount);
+                for (int i = 0; i < nodeCount; ++i) {
+                    float nx, ny, nr;
+                    Velox_GetPosition(world, sbv.nodes[i], &nx, &ny, &nr);
+                    worldPts[i] = {nx, ny};
+                }
+
+                // Draw perimeter lines
+                for (int i = 0; i < nodeCount; ++i) {
+                    Vector2 p1 = worldPts[i];
+                    Vector2 p2 = worldPts[(i + 1) % nodeCount];
+                    DrawLineEx(p1, p2, 3.0f, sbv.color);
+                    DrawCircleV(p1, 4.0f, WHITE);
+                }
+
+                // Fill center interior with semi-transparent tint
+                Vector2 center = {0, 0};
+                for (const auto& pt : worldPts) {
+                    center.x += pt.x;
+                    center.y += pt.y;
+                }
+                center.x /= (float)nodeCount;
+                center.y /= (float)nodeCount;
+
+                for (int i = 0; i < nodeCount; ++i) {
+                    Vector2 p1 = worldPts[i];
+                    Vector2 p2 = worldPts[(i + 1) % nodeCount];
+                    DrawTriangle(center, p1, p2, Fade(sbv.color, 0.25f));
+                }
             }
 
-            // --- UI Overlay ---
-            // 1. Widget Window
-            int widgetX = 10;
-            int widgetY = 10;
+            // --- Render UI / Diagnostics Box ---
+            int widgetX = screenWidth - 340;
+            int widgetY = 20;
             int widgetW = 320;
-            int widgetH = 220; // Taller for force field info
+            int widgetH = 210;
+
+            DrawRectangle(widgetX, widgetY, widgetW, widgetH, Fade(BLACK, 0.85f));
+            DrawRectangleLines(widgetX, widgetY, widgetW, widgetH, Fade(WHITE, 0.2f));
             
-            DrawRectangle(widgetX, widgetY, widgetW, widgetH, Fade(BLACK, 0.8f));
-            DrawRectangleLines(widgetX, widgetY, widgetW, widgetH, GREEN);
-            
-            DrawText("Velox Physics", widgetX + 10, widgetY + 10, 20, GREEN); 
-            DrawText(TextFormat("Entities: %d | FPS: %d", (int)entities.size(), GetFPS()), widgetX + 10, widgetY + 40, 10, WHITE);
+            DrawText("Velox Physics Engine (XPBD)", widgetX + 10, widgetY + 10, 16, GREEN); 
+            DrawText(TextFormat("Step: %.1f us | Sim FPS: %d", g_stepTimeUs, (int)(1000000.0 / (g_stepTimeUs > 1.0 ? g_stepTimeUs : 1.0))), widgetX + 10, widgetY + 32, 10, WHITE);
+            DrawText(TextFormat("Entities: %d | Render: %d FPS", (int)entities.size(), GetFPS()), widgetX + 10, widgetY + 46, 10, SKYBLUE);
             
             // Dynamic Instructions
             if (currentScene == SceneType::BouncingBalls) {
-                DrawText("Sim: Bouncing Balls", widgetX + 10, widgetY + 60, 10, YELLOW);
-                DrawText("Controls:", widgetX + 10, widgetY + 80, 10, GRAY);
-                DrawText("- Left/Right: Rotate Frame", widgetX + 10, widgetY + 95, 10, GRAY);
-                DrawText("- Space: Pause", widgetX + 10, widgetY + 110, 10, GRAY);
+                DrawText("Sim: Bouncing Balls", widgetX + 10, widgetY + 65, 10, YELLOW);
+                DrawText("Controls:", widgetX + 10, widgetY + 85, 10, GRAY);
+                DrawText("- Left/Right: Rotate Frame", widgetX + 10, widgetY + 100, 10, GRAY);
+                DrawText("- Space: Pause", widgetX + 10, widgetY + 115, 10, GRAY);
             } else if (currentScene == SceneType::ForceFieldDemo) {
-                DrawText("Sim: Force Field Demo", widgetX + 10, widgetY + 60, 10, YELLOW);
-                DrawText("Controls:", widgetX + 10, widgetY + 80, 10, GRAY);
-                DrawText("- Click: Spawn Ball", widgetX + 10, widgetY + 95, 10, GRAY);
-                DrawText("- Space: Pause", widgetX + 10, widgetY + 110, 10, GRAY);
-                DrawText("(Balls auto-destroy after 10s)", widgetX + 10, widgetY + 125, 10, Fade(WHITE, 0.6f));
+                DrawText("Sim: Force Field Demo", widgetX + 10, widgetY + 65, 10, YELLOW);
+                DrawText("Controls:", widgetX + 10, widgetY + 85, 10, GRAY);
+                DrawText("- Click: Spawn Ball", widgetX + 10, widgetY + 100, 10, GRAY);
+                DrawText("- Space: Pause", widgetX + 10, widgetY + 115, 10, GRAY);
+                DrawText("(Balls auto-destroy after 10s)", widgetX + 10, widgetY + 130, 10, Fade(WHITE, 0.6f));
                 
                 // Force Field Key
-                DrawText("Force Fields:", widgetX + 10, widgetY + 145, 10, GRAY);
-                DrawText("Blue: Inward | Red: Outward", widgetX + 10, widgetY + 160, 9, Fade(WHITE, 0.8f));
-                DrawText("Green: Clockwise | Yellow: AntiCW", widgetX + 10, widgetY + 175, 9, Fade(WHITE, 0.8f));
+                DrawText("Force Fields:", widgetX + 10, widgetY + 148, 10, GRAY);
+                DrawText("Blue: Inward | Red: Outward", widgetX + 10, widgetY + 162, 9, Fade(WHITE, 0.8f));
+                DrawText("Green: Clockwise | Yellow: AntiCW", widgetX + 10, widgetY + 176, 9, Fade(WHITE, 0.8f));
             } else if (currentScene == SceneType::OscillationDemo) {
-                DrawText("Sim: Oscillation Demo", widgetX + 10, widgetY + 60, 10, YELLOW);
-                DrawText("Controls:", widgetX + 10, widgetY + 80, 10, GRAY);
-                DrawText("- Space: Pause", widgetX + 10, widgetY + 95, 10, GRAY);
+                DrawText("Sim: Oscillation Demo", widgetX + 10, widgetY + 65, 10, YELLOW);
+                DrawText("Controls:", widgetX + 10, widgetY + 85, 10, GRAY);
+                DrawText("- Space: Pause", widgetX + 10, widgetY + 100, 10, GRAY);
                 
                 DrawText("Oscillation Types:", widgetX + 10, widgetY + 120, 10, GRAY);
                 DrawText("Red: Horizontal (X-Axis)", widgetX + 10, widgetY + 135, 9, Fade(RED, 0.8f));
                 DrawText("Green: Vertical (Y-Axis)", widgetX + 10, widgetY + 150, 9, Fade(GREEN, 0.8f));
                 DrawText("Blue: Diagonal", widgetX + 10, widgetY + 165, 9, Fade(BLUE, 0.8f));
             } else if (currentScene == SceneType::ProjectileDemo) {
-                DrawText("Sim: Projectile Demo", widgetX + 10, widgetY + 60, 10, YELLOW);
-                DrawText("Controls:", widgetX + 10, widgetY + 80, 10, GRAY);
-                DrawText("- Click: Shoot Arrow", widgetX + 10, widgetY + 95, 10, GRAY);
-                DrawText("- Space: Pause", widgetX + 10, widgetY + 110, 10, GRAY);
-                DrawText("Aim with mouse!", widgetX + 10, widgetY + 130, 10, ORANGE);
+                DrawText("Sim: Projectile Demo", widgetX + 10, widgetY + 65, 10, YELLOW);
+                DrawText("Controls:", widgetX + 10, widgetY + 85, 10, GRAY);
+                DrawText("- Click: Shoot Arrow", widgetX + 10, widgetY + 100, 10, GRAY);
+                DrawText("- Space: Pause", widgetX + 10, widgetY + 115, 10, GRAY);
+                DrawText("Aim with mouse!", widgetX + 10, widgetY + 135, 10, ORANGE);
             } else if (currentScene == SceneType::GravityDemo) {
-                DrawText("Sim: Gravity Direction Demo", widgetX + 10, widgetY + 60, 10, YELLOW);
-                DrawText("Controls:", widgetX + 10, widgetY + 80, 10, GRAY);
-                DrawText("- A/D: Rotate Gravity Vector", widgetX + 10, widgetY + 95, 10, GRAY);
-                DrawText("- W: Set Gravity Up", widgetX + 10, widgetY + 110, 10, GRAY);
-                DrawText("- S: Set Gravity Down", widgetX + 10, widgetY + 125, 10, GRAY);
-                DrawText("- Space: Pause", widgetX + 10, widgetY + 140, 10, GRAY);
+                DrawText("Sim: Gravity Direction Demo", widgetX + 10, widgetY + 65, 10, YELLOW);
+                DrawText("Controls:", widgetX + 10, widgetY + 85, 10, GRAY);
+                DrawText("- A/D: Rotate Gravity Vector", widgetX + 10, widgetY + 100, 10, GRAY);
+                DrawText("- W: Set Gravity Up", widgetX + 10, widgetY + 115, 10, GRAY);
+                DrawText("- S: Set Gravity Down", widgetX + 10, widgetY + 130, 10, GRAY);
+                DrawText("- Space: Pause", widgetX + 10, widgetY + 145, 10, GRAY);
             } else if (currentScene == SceneType::JointDemo) {
-                DrawText("Sim: Distance Joint Demo", widgetX + 10, widgetY + 60, 10, YELLOW);
-                DrawText("Features:", widgetX + 10, widgetY + 80, 10, GRAY);
-                DrawText("- Left: Pendulum Chain", widgetX + 10, widgetY + 95, 10, GRAY);
-                DrawText("- Center: Chaotic Double Pendulum", widgetX + 10, widgetY + 110, 10, GRAY);
-                DrawText("- Right: Newton's Cradle (Elastic)", widgetX + 10, widgetY + 125, 10, GRAY);
-                DrawText("- Space: Pause", widgetX + 10, widgetY + 140, 10, GRAY);
+                DrawText("Sim: Distance Joint Demo", widgetX + 10, widgetY + 65, 10, YELLOW);
+                DrawText("Features:", widgetX + 10, widgetY + 85, 10, GRAY);
+                DrawText("- Left: Pendulum Chain", widgetX + 10, widgetY + 100, 10, GRAY);
+                DrawText("- Center: Chaotic Double Pendulum", widgetX + 10, widgetY + 115, 10, GRAY);
+                DrawText("- Right: Newton's Cradle (Elastic)", widgetX + 10, widgetY + 130, 10, GRAY);
+                DrawText("- Space: Pause", widgetX + 10, widgetY + 145, 10, GRAY);
             } else if (currentScene == SceneType::SandboxDemo) {
-                DrawText("Sim: Convex Polygons & Motors", widgetX + 10, widgetY + 60, 10, YELLOW);
-                DrawText("Showcased Features:", widgetX + 10, widgetY + 80, 9, {255, 220, 60, 255});
-                DrawText("- Triangle: Custom Polygon collider", widgetX + 10, widgetY + 95, 9, GRAY);
-                DrawText("- Carousel: Motorized distance joint", widgetX + 10, widgetY + 110, 9, GRAY);
-                DrawText("- Falling shapes: Pentagons (SAT)", widgetX + 10, widgetY + 125, 9, GRAY);
+                DrawText("Sim: Convex Polygons & Motors", widgetX + 10, widgetY + 65, 10, YELLOW);
+                DrawText("Showcased Features:", widgetX + 10, widgetY + 85, 9, {255, 220, 60, 255});
+                DrawText("- Triangle: Custom Polygon collider", widgetX + 10, widgetY + 100, 9, GRAY);
+                DrawText("- Carousel: Motorized distance joint", widgetX + 10, widgetY + 115, 9, GRAY);
+                DrawText("- Falling shapes: Pentagons (SAT)", widgetX + 10, widgetY + 130, 9, GRAY);
             } else if (currentScene == SceneType::ChainDemo) {
-                DrawText("Sim: Chain Shapes Showcase", widgetX + 10, widgetY + 60, 10, YELLOW);
-                DrawText("Showcased Features:", widgetX + 10, widgetY + 80, 9, {255, 220, 60, 255});
-                DrawText("- Wavy floor: Sinusoidal Chain collider", widgetX + 10, widgetY + 95, 9, GRAY);
-                DrawText("- Interactive: Falling circles & boxes", widgetX + 10, widgetY + 110, 9, GRAY);
-                DrawText("- Math: Segmented SAT resolution", widgetX + 10, widgetY + 125, 9, GRAY);
+                DrawText("Sim: Chain Shapes Showcase", widgetX + 10, widgetY + 65, 10, YELLOW);
+                DrawText("Showcased Features:", widgetX + 10, widgetY + 85, 9, {255, 220, 60, 255});
+                DrawText("- Wavy floor: Sinusoidal Chain collider", widgetX + 10, widgetY + 100, 9, GRAY);
+                DrawText("- Interactive: Falling circles & boxes", widgetX + 10, widgetY + 115, 9, GRAY);
+                DrawText("- Math: Segmented SAT resolution", widgetX + 10, widgetY + 130, 9, GRAY);
             } else if (currentScene == SceneType::RaycastDemo) {
-                DrawText("Sim: Raycast Queries Showcase", widgetX + 10, widgetY + 60, 10, YELLOW);
-                DrawText("Showcased Features:", widgetX + 10, widgetY + 80, 9, {255, 220, 60, 255});
-                DrawText("- Laser line: projects from top-left", widgetX + 10, widgetY + 95, 9, GRAY);
-                DrawText("- Interaction: Casts to mouse point", widgetX + 10, widgetY + 110, 9, GRAY);
-                DrawText("- Highlight: Red line to hit point", widgetX + 10, widgetY + 125, 9, GRAY);
-                DrawText("- Vector: Green line shows hit normal", widgetX + 10, widgetY + 140, 9, GRAY);
+                DrawText("Sim: Raycast Queries Showcase", widgetX + 10, widgetY + 65, 10, YELLOW);
+                DrawText("Showcased Features:", widgetX + 10, widgetY + 85, 9, {255, 220, 60, 255});
+                DrawText("- Laser line: projects from top-left", widgetX + 10, widgetY + 100, 9, GRAY);
+                DrawText("- Interaction: Casts to mouse point", widgetX + 10, widgetY + 115, 9, GRAY);
+                DrawText("- Highlight: Red line to hit point", widgetX + 10, widgetY + 130, 9, GRAY);
+                DrawText("- Vector: Green line shows hit normal", widgetX + 10, widgetY + 145, 9, GRAY);
             } else if (currentScene == SceneType::RevolutePrismaticDemo) {
-                DrawText("Sim: Revolute & Prismatic Joints", widgetX + 10, widgetY + 60, 10, YELLOW);
-                DrawText("Showcased Features:", widgetX + 10, widgetY + 80, 9, {255, 220, 60, 255});
-                DrawText("- Orange blade: Revolute Hinge Motor", widgetX + 10, widgetY + 95, 9, GRAY);
-                DrawText("- Blue box: Prismatic Slider Motor", widgetX + 10, widgetY + 110, 9, GRAY);
-                DrawText("- Green/Lime: Coupled Gear rotation", widgetX + 10, widgetY + 125, 9, GRAY);
-                DrawText("- Purple boxes: Interactive Pulley link", widgetX + 10, widgetY + 140, 9, GRAY);
+                DrawText("Sim: Revolute & Prismatic Joints", widgetX + 10, widgetY + 65, 10, YELLOW);
+                DrawText("Showcased Features:", widgetX + 10, widgetY + 85, 9, {255, 220, 60, 255});
+                DrawText("- Orange blade: Revolute Hinge Motor", widgetX + 10, widgetY + 100, 9, GRAY);
+                DrawText("- Blue box: Prismatic Slider Motor", widgetX + 10, widgetY + 115, 9, GRAY);
+                DrawText("- Green/Lime: Coupled Gear rotation", widgetX + 10, widgetY + 130, 9, GRAY);
+                DrawText("- Purple boxes: Interactive Pulley link", widgetX + 10, widgetY + 145, 9, GRAY);
             } else if (currentScene == SceneType::CCDShowcase) {
-                DrawText("Sim: CCD vs Tunneling", widgetX + 10, widgetY + 60, 10, YELLOW);
-                DrawText("Showcased Features:", widgetX + 10, widgetY + 80, 9, {255, 220, 60, 255});
-                DrawText("- Red Ball: Hyper-speed bullet (3500px/s)", widgetX + 10, widgetY + 95, 9, GRAY);
-                DrawText("- Thin wall: Bounces bullet perfectly", widgetX + 10, widgetY + 110, 9, GRAY);
-                DrawText("- Precision: Zero tunneling through math CCD", widgetX + 10, widgetY + 125, 9, GRAY);
+                DrawText("Sim: CCD vs Tunneling", widgetX + 10, widgetY + 65, 10, YELLOW);
+                DrawText("Showcased Features:", widgetX + 10, widgetY + 85, 9, {255, 220, 60, 255});
+                DrawText("- Red Ball: Hyper-speed bullet (3500px/s)", widgetX + 10, widgetY + 100, 9, GRAY);
+                DrawText("- Thin wall: Bounces bullet perfectly", widgetX + 10, widgetY + 115, 9, GRAY);
+                DrawText("- Precision: Zero tunneling through math CCD", widgetX + 10, widgetY + 130, 9, GRAY);
             } else if (currentScene == SceneType::SleepingShowcase) {
-                DrawText("Sim: Sleeping & Activation", widgetX + 10, widgetY + 60, 10, YELLOW);
-                DrawText("Showcased Features:", widgetX + 10, widgetY + 80, 9, {255, 220, 60, 255});
-                DrawText("- Dark Gray: Sleeping bodies (deactivated)", widgetX + 10, widgetY + 95, 9, GRAY);
-                DrawText("- Gold/Orange: Active awake bodies", widgetX + 10, widgetY + 110, 9, GRAY);
-                DrawText("- Launch: Trigger ball wakes up stack", widgetX + 10, widgetY + 125, 9, GRAY);
+                DrawText("Sim: Sleeping & Activation", widgetX + 10, widgetY + 65, 10, YELLOW);
+                DrawText("Showcased Features:", widgetX + 10, widgetY + 85, 9, {255, 220, 60, 255});
+                DrawText("- Dark Gray: Sleeping bodies (deactivated)", widgetX + 10, widgetY + 100, 9, GRAY);
+                DrawText("- Gold/Orange: Active awake bodies", widgetX + 10, widgetY + 115, 9, GRAY);
+                DrawText("- Launch: Trigger ball wakes up stack", widgetX + 10, widgetY + 130, 9, GRAY);
             } else if (currentScene == SceneType::SoftBodySandbox) {
-                DrawText("Sim: Soft Body Sandbox", widgetX + 10, widgetY + 60, 10, YELLOW);
-                DrawText("Showcased Features:", widgetX + 10, widgetY + 80, 9, {255, 220, 60, 255});
-                DrawText("- Blue Blob: Area preserved squishy body", widgetX + 10, widgetY + 95, 9, GRAY);
-                DrawText("- Green Star: Shape-matched elastic shape", widgetX + 10, widgetY + 110, 9, GRAY);
-                DrawText("- Interact: Obstacles deform soft bodies", widgetX + 10, widgetY + 125, 9, GRAY);
+                DrawText("Sim: Soft Body Sandbox", widgetX + 10, widgetY + 65, 10, YELLOW);
+                DrawText("Showcased Features:", widgetX + 10, widgetY + 85, 9, {255, 220, 60, 255});
+                DrawText("- Blue Blob: Area preserved squishy body", widgetX + 10, widgetY + 100, 9, GRAY);
+                DrawText("- Green Star: Shape-matched elastic shape", widgetX + 10, widgetY + 115, 9, GRAY);
+                DrawText("- Interact: Obstacles deform soft bodies", widgetX + 10, widgetY + 130, 9, GRAY);
             } else if (currentScene == SceneType::SoftBodyFunnel) {
-                DrawText("Sim: Squeeze & Funnel Demo", widgetX + 10, widgetY + 60, 10, YELLOW);
-                DrawText("Showcased Features:", widgetX + 10, widgetY + 80, 9, {255, 220, 60, 255});
-                DrawText("- Funnel slopes: static angled walls", widgetX + 10, widgetY + 95, 9, GRAY);
-                DrawText("- Deform: Soft shapes squeeze through gap", widgetX + 10, widgetY + 110, 9, GRAY);
-                DrawText("- Elasticity: Recover original rest shape", widgetX + 10, widgetY + 125, 9, GRAY);
+                DrawText("Sim: Squeeze & Funnel Demo", widgetX + 10, widgetY + 65, 10, YELLOW);
+                DrawText("Showcased Features:", widgetX + 10, widgetY + 85, 9, {255, 220, 60, 255});
+                DrawText("- Funnel slopes: static angled walls", widgetX + 10, widgetY + 100, 9, GRAY);
+                DrawText("- Deform: Soft shapes squeeze through gap", widgetX + 10, widgetY + 115, 9, GRAY);
+                DrawText("- Elasticity: Recover original rest shape", widgetX + 10, widgetY + 130, 9, GRAY);
             } else if (currentScene == SceneType::SoftBodyStacking) {
-                DrawText("Sim: Cushion Stacking Showcase", widgetX + 10, widgetY + 60, 10, YELLOW);
-                DrawText("Showcased Features:", widgetX + 10, widgetY + 80, 9, {255, 220, 60, 255});
-                DrawText("- Magenta Cushion: squishy soft mattress", widgetX + 10, widgetY + 95, 9, GRAY);
-                DrawText("- Heavy load: dynamic box & ball stack", widgetX + 10, widgetY + 110, 9, GRAY);
-                DrawText("- Compliance: Cushion sags under weight", widgetX + 10, widgetY + 125, 9, GRAY);
+                DrawText("Sim: Cushion Stacking Showcase", widgetX + 10, widgetY + 65, 10, YELLOW);
+                DrawText("Showcased Features:", widgetX + 10, widgetY + 85, 9, {255, 220, 60, 255});
+                DrawText("- Magenta Cushion: squishy soft mattress", widgetX + 10, widgetY + 100, 9, GRAY);
+                DrawText("- Heavy load: dynamic box & ball stack", widgetX + 10, widgetY + 115, 9, GRAY);
+                DrawText("- Compliance: Cushion sags under weight", widgetX + 10, widgetY + 130, 9, GRAY);
+            } else if (currentScene == SceneType::BuoyancyWaterTank) {
+                DrawText("Sim: Buoyancy Water Tank", widgetX + 10, widgetY + 65, 10, YELLOW);
+                DrawText("Showcased Features:", widgetX + 10, widgetY + 85, 9, {255, 220, 60, 255});
+                DrawText("- Blue water basin: Restoring buoyancy", widgetX + 10, widgetY + 100, 9, GRAY);
+                DrawText("- Floating boats: Viscous fluid drag", widgetX + 10, widgetY + 115, 9, GRAY);
+                DrawText("- Click: Drop new floating object", widgetX + 10, widgetY + 130, 9, ORANGE);
+            } else if (currentScene == SceneType::ChaosDestruction) {
+                DrawText("Sim: 1,000-Body Chaos Sandbox", widgetX + 10, widgetY + 65, 10, YELLOW);
+                DrawText("Showcased Features:", widgetX + 10, widgetY + 85, 9, {255, 220, 60, 255});
+                DrawText("- Giant stacked pyramid (1,000 bodies)", widgetX + 10, widgetY + 100, 9, GRAY);
+                DrawText("- Heavy wrecking ball on joint anchor", widgetX + 10, widgetY + 115, 9, GRAY);
+                DrawText("- Mouse Drag: Smash wrecking ball!", widgetX + 10, widgetY + 130, 9, RED);
+            } else if (currentScene == SceneType::RagdollNetwork) {
+                DrawText("Sim: Articulated Ragdoll Network", widgetX + 10, widgetY + 65, 10, YELLOW);
+                DrawText("Showcased Features:", widgetX + 10, widgetY + 85, 9, {255, 220, 60, 255});
+                DrawText("- Humanoid skeletons (head, torso, limbs)", widgetX + 10, widgetY + 100, 9, GRAY);
+                DrawText("- Revolute joints with angular limits", widgetX + 10, widgetY + 115, 9, GRAY);
+                DrawText("- Stable tumbling over obstacle pegs", widgetX + 10, widgetY + 130, 9, GRAY);
             }
             
             // Combo Box
@@ -1659,14 +2033,35 @@ int main() {
 
             if (isDropdownOpen) {
                 int sceneCount = sizeof(sceneNames) / sizeof(sceneNames[0]);
+                const char* hotkeys[] = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "Q", "W", "E", "R", "T", "Y", "U", "I" };
+                
+                int menuW = 480;
+                int menuX = screenWidth - menuW - 20;
+                int itemH = 26;
+                int rows = (sceneCount + 1) / 2;
+                int colW = menuW / 2;
+
+                DrawRectangle(menuX, comboY + comboH + 2, menuW, rows * itemH + 6, Fade(BLACK, 0.95f));
+                DrawRectangleLines(menuX, comboY + comboH + 2, menuW, rows * itemH + 6, SKYBLUE);
+
                 for (int i = 0; i < sceneCount; ++i) {
-                    int itemY = comboY + comboH + (i * comboH);
-                    bool hoverItem = (mouse.x >= comboX && mouse.x <= comboX + comboW && mouse.y >= itemY && mouse.y <= itemY + comboH);
-                    
-                    DrawRectangle(comboX, itemY, comboW, comboH, hoverItem ? Fade(GREEN, 0.5f) : Fade(BLACK, 0.9f));
-                    DrawRectangleLines(comboX, itemY, comboW, comboH, WHITE);
-                    DrawText(sceneNames[i], comboX + 10, itemY + 8, 10, WHITE);
-                    
+                    int col = i / rows;
+                    int row = i % rows;
+                    int itemX = menuX + col * colW + 2;
+                    int itemY = comboY + comboH + 5 + (row * itemH);
+
+                    bool hoverItem = (mouse.x >= itemX && mouse.x <= itemX + colW - 4 && mouse.y >= itemY && mouse.y <= itemY + itemH - 2);
+
+                    if (hoverItem) {
+                        DrawRectangle(itemX, itemY, colW - 4, itemH - 2, Fade(SKYBLUE, 0.35f));
+                    }
+                    if (selectedItem == i) {
+                        DrawRectangle(itemX, itemY, colW - 4, itemH - 2, Fade(GREEN, 0.4f));
+                    }
+
+                    DrawText(TextFormat("[%s]", hotkeys[i]), itemX + 6, itemY + 6, 9, YELLOW);
+                    DrawText(sceneNames[i], itemX + 30, itemY + 6, 9, WHITE);
+
                     if (hoverItem && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
                         selectedItem = i;
                         currentScene = (SceneType)i;
