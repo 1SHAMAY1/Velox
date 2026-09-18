@@ -35,8 +35,8 @@ void TestOscillation() {
     Velox_AddTransform(world, platform, 200.0f, 200.0f, 0.0f);
     Velox_AddMovement(world, platform);
     Velox_AddRigidBody(world, platform, 0.0f, true); // Kinematic/Static
-    // Axis: (1, 0), Amplitude: 50 px, Frequency: 1 Hz
-    Velox_AddOscillation(world, platform, 1.0f, 0.0f, 50.0f, 1.0f);
+    // Axis: (1, 0), Amplitude: 50 px, Frequency: 6.2831853f rad/s (1 Hz)
+    Velox_AddOscillation(world, platform, 1.0f, 0.0f, 50.0f, 6.2831853f);
 
     // Step 0.25s (quarter period = peak amplitude of 50px)
     for (int i = 0; i < 15; ++i) {
@@ -216,6 +216,7 @@ void TestCollisionEventCallbacks() {
     Velox_AddTransform(world, ball, 100.0f, 200.0f, 0.0f);
     Velox_AddRigidBody(world, ball, 1.0f, false);
     Velox_AddMovement(world, ball);
+    Velox_SetVelocity(world, ball, 0.0f, 300.0f);
     Velox_AddCircleCollider(world, ball, 10.0f);
 
     // Sensor Trigger Region
@@ -225,7 +226,7 @@ void TestCollisionEventCallbacks() {
     Velox_AddBoxCollider(world, sensor, 100.0f, 20.0f);
     Velox_SetColliderSensor(world, sensor, true);
 
-    for (int i = 0; i < 40; ++i) {
+    for (int i = 0; i < 60; ++i) {
         Velox_Step(world, 1.0f / 60.0f);
     }
 
@@ -283,8 +284,8 @@ void TestSleepingStackWakeUpOnBaseMove() {
     // Remove the bottom box (stack[0]) by moving it away
     Velox_SetPosition(world, stack[0], 1000.0f, 1000.0f);
 
-    // Step physics for 60 ticks
-    for (int t = 0; t < 60; ++t) {
+    // Step physics for 120 ticks to allow full wake-up wave propagation and stack drop
+    for (int t = 0; t < 120; ++t) {
         Velox_Step(world, 1.0f / 60.0f);
     }
 

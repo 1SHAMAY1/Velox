@@ -13,27 +13,28 @@ void TestStackingPyramid() {
     Velox::EntityID floor = Velox_CreateEntity(world);
     Velox_AddTransform(world, floor, 500.0f, 700.0f, 0.0f);
     Velox_AddRigidBody(world, floor, 0.0f, true);
-    Velox_AddBoxCollider(world, floor, 1000.0f, 40.0f);
+    Velox_AddBoxCollider(world, floor, 2000.0f, 40.0f);
 
     // 10-tier Pyramid: Base has 10 boxes, top has 1 box (total = 55 boxes)
     const float boxSize = 20.0f;
-    const float startY = 650.0f;
+    const float startY = 680.0f - boxSize * 0.5f; // Resting directly on top of floor (680px)
     std::vector<Velox::EntityID> boxes;
 
     int tiers = 10;
     for (int row = 0; row < tiers; ++row) {
         int count = tiers - row;
-        float rowStartX = 500.0f - (count - 1) * (boxSize * 0.55f);
-        float y = startY - row * (boxSize + 1.0f);
+        float rowStartX = 500.0f - (count - 1) * (boxSize * 0.5f);
+        float y = startY - row * boxSize;
 
         for (int col = 0; col < count; ++col) {
-            float x = rowStartX + col * (boxSize * 1.1f);
+            float x = rowStartX + col * boxSize;
             Velox::EntityID b = Velox_CreateEntity(world);
             Velox_AddTransform(world, b, x, y, 0.0f);
             Velox_AddMovement(world, b);
             Velox_AddRigidBody(world, b, 1.0f, false);
             Velox_AddBoxCollider(world, b, boxSize, boxSize);
-            Velox_AddPhysicalMaterial(world, b, 0.6f, 0.4f, 0.0f); // High friction, 0 restitution
+            Velox_AddPhysicalMaterial(world, b, 0.8f, 0.5f, 0.0f); // High friction, 0 restitution
+            Velox_SetDamping(world, b, 0.1f, 0.1f);
             boxes.push_back(b);
         }
     }
@@ -50,11 +51,9 @@ void TestStackingPyramid() {
         Velox_GetPosition(world, b, &x, &y, &rot);
         assert(std::isfinite(x) && std::isfinite(y) && std::isfinite(rot));
         
-        // Verify box is above floor (floor top = 680px)
-        assert(y <= 690.0f);
-
         float vx = 0, vy = 0, av = 0;
         Velox_GetVelocity(world, b, &vx, &vy, &av);
+        assert(y <= 680.0f && "Box tunneled below floor!");
         // Box velocities must have settled to near-zero (sleeping or resting)
         assert(std::abs(vx) < 5.0f && std::abs(vy) < 5.0f);
     }

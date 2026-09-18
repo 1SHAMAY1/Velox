@@ -10,7 +10,7 @@ void TestRaycastBoxHit() {
     Velox::EntityID box = Velox_CreateEntity(world);
     Velox_AddTransform(world, box, 500.0f, 500.0f, 0.0f);
     Velox_AddRigidBody(world, box, 0.0f, true);
-    Velox_AddBoxCollider(world, box, 50.0f, 50.0f); // Extents: x in [450, 550], y in [450, 550]
+    Velox_AddBoxCollider(world, box, 100.0f, 100.0f); // Extents: x in [450, 550], y in [450, 550]
 
     float hitX = 0, hitY = 0, normX = 0, normY = 0, frac = 0;
     Velox::EntityID hitEntity = 0;

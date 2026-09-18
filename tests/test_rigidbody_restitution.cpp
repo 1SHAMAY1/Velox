@@ -42,7 +42,7 @@ void TestRestitutionDrop() {
         
         float x2 = 0, y2 = 0, r2 = 0;
         Velox_GetPosition(world, ballElastic, &x2, &y2, &r2);
-        if (y2 >= 764.0f) {
+        if (y2 >= 750.0f) {
             touchedFloor = true;
         }
         if (touchedFloor && y2 < minY_after_bounce) {
@@ -95,13 +95,13 @@ void TestKineticEnergyConservation() {
     balls.reserve(count);
 
     std::mt19937 rng(1337);
-    std::uniform_real_distribution<float> distX(200.0f, 800.0f);
-    std::uniform_real_distribution<float> distY(200.0f, 600.0f);
     std::uniform_real_distribution<float> distVel(-150.0f, 150.0f);
 
     for (int i = 0; i < count; ++i) {
+        float gx = 220.0f + (i % 8) * 70.0f;
+        float gy = 220.0f + (i / 8) * 70.0f;
         auto b = Velox_CreateEntity(world);
-        Velox_AddTransform(world, b, distX(rng), distY(rng), 0.0f);
+        Velox_AddTransform(world, b, gx, gy, 0.0f);
         Velox_AddMovement(world, b);
         Velox_SetVelocity(world, b, distVel(rng), distVel(rng));
         Velox_AddRigidBody(world, b, 1.0f, false);

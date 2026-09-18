@@ -26,7 +26,7 @@ set(TEST_FILES
     test_ecs
     test_primitives
     test_joints_softbody
-    test_gameplay_components
+    test_gameplay
     test_raycasting
     test_rigidbody_stacking
     test_rigidbody_restitution
@@ -39,6 +39,7 @@ set(TEST_FILES
     test_chaos_stress
     test_physics_stress
     test_decentralized_behavior
+    test_all_scenes_headless
 )
 
 foreach(TEST_NAME ${TEST_FILES})

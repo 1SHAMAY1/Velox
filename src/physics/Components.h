@@ -61,6 +61,7 @@ namespace Velox {
         Real Inertia       = 1.0f;
         Real InverseInertia = 1.0f;
         bool IsStatic      = false;
+        bool FixedRotation = false; ///< When true, body cannot rotate (rotation locked)
 
         // --- Sleep State ---
         bool  IsSleeping   = false;
