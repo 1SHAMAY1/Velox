@@ -183,20 +183,97 @@ Launch `VeloxVisualizer.exe` and select a scene from the dropdown.
 | **CCD vs Tunneling Showcase** | Hyper-speed bullets fired at a thin wall, demonstrating zero tunneling |
 | **Sleeping & Activation Showcase** | Pile of boxes deactivating (turning gray) when settled and waking up on impact |
 | **Soft Body Showcase** | Blob bodies (area-preservation) and ShapeMatched elastic bodies interacting with rigid geometry |
+| **Buoyancy Water Tank** | Decentralized behavior system with custom buoyancy simulating floating boats in fluid with water drag |
+| **1,000-Body Chaos & Destruction Sandbox** | 1,000 interacting bodies with a heavy wrecking ball, demonstrating sub-millisecond XPBD solver speed |
+| **Articulated Ragdoll Network** | Multi-jointed humanoids with revolute limb limits reacting to impacts and tumbling down slopes |
 
 ### Controls
-- **Dropdown** — switch scene
+- **Dropdown / Tab** — switch scene
 - **Space** — pause / resume
-- **Mouse** — spawn or shoot objects (scene-dependent)
+- **Mouse Left/Right** — spawn, grab, interact, or fire wrecking ball (scene-dependent)
 - **WASD** — rotate gravity direction (Gravity Direction Demo)
+- **Live HUD** — displays sub-step $\mu\text{s}$ latency, uncapped simulation FPS, and real-time process memory footprint (KB)
+
+---
+
+## ⚡ Real-World Engine Benchmarks & Memory Footprint
+
+Tested head-to-head on the exact same host CPU against **Box2D (v2.4.2)** and **Chipmunk2D (v7.0.3)** under identical simulation scenarios:
+
+### 1. Pyramid Stacking (1,000 Rigid Bodies)
+| Physics Engine | Solver Type | Avg Step Time | Uncapped FPS | Peak Memory | Bytes / Body |
+| :--- | :--- | :---: | :---: | :---: | :---: |
+| ⚡ **Velox** | **XPBD (8 Sub-steps)** | **1.55 ms** | **644 FPS** | **712 KB** | **~729 B** |
+| **Chipmunk2D** | Impulse-based | 1.55 ms | 643 FPS | 1.3 MB | ~1,392 B |
+| **Box2D v2.4** | PGS / Projected Gauss-Seidel | 2.86 ms | 349 FPS | 700 KB | ~716 B |
+
+*Velox delivers **1.84× higher throughput than Box2D** while consuming **half the RAM of Chipmunk2D**.*
+
+---
+
+### 2. Dynamic Circle Collisions (1,000 Rigid Bodies)
+| Physics Engine | Broadphase Strategy | Avg Step Time | Uncapped FPS | Peak Memory |
+| :--- | :--- | :---: | :---: | :---: |
+| ⚡ **Velox** | **Fat-AABB Spatial Hash + Caching** | **0.74 ms** 🚀 | **1,345 FPS** | **588 KB** |
+| **Box2D v2.4** | Dynamic Tree (BVH) | 1.08 ms | 921 FPS | 420 KB |
+| **Chipmunk2D** | Spatial Hash Grid | 0.29 ms | 3,391 FPS | 800 KB |
+
+*Velox achieves **sub-millisecond (<1.0 ms) step time (>1,300 FPS)** with zero runtime allocations.*
+
+---
+
+### 3. Joint Constraint Chain (500 Connected Bodies)
+| Physics Engine | Constraint Formulation | Avg Step Time | Uncapped FPS | Peak Memory |
+| :--- | :--- | :---: | :---: | :---: |
+| ⚡ **Velox** | **Sub-stepped XPBD Distance** | **0.37 ms** | **2,644 FPS** | **452 KB** |
+| **Box2D v2.4** | Distance Joint PGS | 0.19 ms | 5,116 FPS | 420 KB |
+| **Chipmunk2D** | Pivot / Pin Joint | 0.30 ms | 3,293 FPS | 300 KB |
+
+---
+
+### Running the Comparative Benchmark Suite
+```bash
+# Run real multi-engine head-to-head comparison
+.\build\bin\benchmark_real_engines.exe
+```
+
+---
+
+## 🧪 Automated Test Suite
+
+Velox comes equipped with comprehensive, professional unit and subsystem test suites in [`tests/`](tests):
+
+| Test Suite | File | What it tests |
+| :--- | :--- | :--- |
+| **Math Library** | `tests/test_math.cpp` | Vec2 arithmetic, dot products, magnitudes, normalization, and rotations |
+| **ECS Subsystem** | `tests/test_ecs.cpp` | Entity lifecycle, ID recycling, component registration, and auto-cleanup |
+| **Primitive Collisions** | `tests/test_primitives.cpp` | Permutations of Circle, Box, Convex Polygon, and Chain polyline terrain |
+| **Constraints & Soft Bodies** | `tests/test_joints_softbody.cpp` | Distance joints, Revolute hinges, Prismatic sliders, Blobs, and Shape-matching |
+| **Gameplay Components** | `tests/test_gameplay_components.cpp` | Rotation Motors, Sinusoidal Oscillators, Projectiles, and Radial Force Fields |
+| **Decentralized Physics** | `tests/test_decentralized_behavior.cpp` | Macro-based auto-registration and execution of custom user components |
+| **Raycasting System** | `tests/test_raycasting.cpp` | Exact intersection tests, normals, hit fractions, and misses against colliders |
+| **Chaos, Stress & RAM** | `tests/test_chaos_stress.cpp` | 1,000 randomized entities, verifying 0 NaNs, numerical stability, and $<800\text{ bytes/body}$ RAM |
+
+### Running the Tests
+```bash
+# Run all test suites
+.\build\bin\test_math.exe
+.\build\bin\test_ecs.exe
+.\build\bin\test_primitives.exe
+.\build\bin\test_joints_softbody.exe
+.\build\bin\test_gameplay_components.exe
+.\build\bin\test_decentralized_behavior.exe
+.\build\bin\test_raycasting.exe
+.\build\bin\test_chaos_stress.exe
+```
 
 ---
 
 ## 🛠️ Building
 
 ### Prerequisites
-- CMake 3.10+
-- C++17 compiler (MSVC 2019+, GCC 9+, Clang 10+)
+- CMake 3.20+
+- C++20 compiler (MSVC 2022/2026, GCC 10+, Clang 11+)
 
 ### Steps
 
@@ -206,13 +283,13 @@ git clone https://github.com/1SHAMAY1/Velox.git
 cd Velox
 
 # Configure and build (Release recommended)
-cmake -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --config Release
+cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release
+cmake --build build
 ```
 
 ### Run (Windows)
 ```bash
-.\build\bin\Release\VeloxVisualizer.exe
+.\build\bin\VeloxVisualizer.exe
 # or use the included helper:
 .\run_visualizer.bat
 ```

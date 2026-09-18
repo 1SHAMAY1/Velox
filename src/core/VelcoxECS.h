@@ -56,48 +56,70 @@ namespace Velox {
     template <typename T>
     class ComponentArray : public IComponentArray {
     public:
+        static constexpr size_t INVALID_INDEX = static_cast<size_t>(-1);
+
+        ComponentArray() {
+            m_sparseEntityMap.resize(128, INVALID_INDEX);
+            m_componentArray.reserve(32);
+            m_denseEntities.reserve(32);
+        }
+
         /// Adds `component` for `entity`. Assumes the entity does not already have one.
         void InsertData(EntityID entity, T component) {
+            if (entity >= m_sparseEntityMap.size()) {
+                m_sparseEntityMap.resize(std::max(m_sparseEntityMap.size() * 2, static_cast<size_t>(entity + 128)), INVALID_INDEX);
+            }
             size_t newIndex = m_size;
-            m_entityToIndexMap[entity] = newIndex;
-            m_indexToEntityMap[newIndex] = entity;
-            m_componentArray[newIndex] = component;
+            m_sparseEntityMap[entity] = newIndex;
+            m_denseEntities.push_back(entity);
+            if (newIndex < m_componentArray.size()) {
+                m_componentArray[newIndex] = component;
+            } else {
+                m_componentArray.push_back(component);
+            }
             m_size++;
         }
 
         /// Removes `entity`'s component, if present, swapping the last element into its slot.
         void RemoveData(EntityID entity) {
-            if (m_entityToIndexMap.find(entity) == m_entityToIndexMap.end()) return;
+            if (entity >= m_sparseEntityMap.size() || m_sparseEntityMap[entity] == INVALID_INDEX) return;
 
-            // Copy last element into deleted element's place to maintain density
-            size_t removedIndex = m_entityToIndexMap[entity];
+            size_t removedIndex = m_sparseEntityMap[entity];
             size_t lastIndex = m_size - 1;
-            T& lastComponent = m_componentArray[lastIndex];
-            EntityID lastEntity = m_indexToEntityMap[lastIndex];
 
-            m_componentArray[removedIndex] = lastComponent;
-            m_entityToIndexMap[lastEntity] = removedIndex;
-            m_indexToEntityMap[removedIndex] = lastEntity;
+            if (removedIndex != lastIndex) {
+                T lastComponent = m_componentArray[lastIndex];
+                EntityID lastEntity = m_denseEntities[lastIndex];
 
-            m_entityToIndexMap.erase(entity);
-            m_indexToEntityMap.erase(lastIndex);
+                m_componentArray[removedIndex] = lastComponent;
+                m_sparseEntityMap[lastEntity] = removedIndex;
+                m_denseEntities[removedIndex] = lastEntity;
+            }
 
+            m_sparseEntityMap[entity] = INVALID_INDEX;
+            m_denseEntities.pop_back();
             m_size--;
         }
 
         /// Returns a reference to `entity`'s component. Asserts if it does not exist.
-        T& GetData(EntityID entity) {
-            assert(m_entityToIndexMap.find(entity) != m_entityToIndexMap.end() && "Retrieving non-existent component.");
-            return m_componentArray[m_entityToIndexMap[entity]];
+        inline T& GetData(EntityID entity) {
+            assert(entity < m_sparseEntityMap.size() && m_sparseEntityMap[entity] != INVALID_INDEX && "Retrieving non-existent component.");
+            return m_componentArray[m_sparseEntityMap[entity]];
+        }
+
+        /// Returns a const reference to `entity`'s component.
+        inline const T& GetData(EntityID entity) const {
+            assert(entity < m_sparseEntityMap.size() && m_sparseEntityMap[entity] != INVALID_INDEX && "Retrieving non-existent component.");
+            return m_componentArray[m_sparseEntityMap[entity]];
         }
 
         /// Returns true if `entity` currently has a component in this array.
-        bool HasData(EntityID entity) {
-            return m_entityToIndexMap.find(entity) != m_entityToIndexMap.end();
+        inline bool HasData(EntityID entity) const {
+            return entity < m_sparseEntityMap.size() && m_sparseEntityMap[entity] != INVALID_INDEX;
         }
 
         void EntityDestroyed(EntityID entity) override {
-            if (m_entityToIndexMap.find(entity) != m_entityToIndexMap.end()) {
+            if (entity < m_sparseEntityMap.size() && m_sparseEntityMap[entity] != INVALID_INDEX) {
                 RemoveData(entity);
             }
         }
@@ -105,19 +127,15 @@ namespace Velox {
         /// Number of components currently stored.
         size_t GetSize() const { return m_size; }
 
-        /// Read-only access to the entity -> index map, used for iteration by owning entity.
-        const std::unordered_map<EntityID, size_t>& GetEntityMap() const { return m_entityToIndexMap; }
+        /// Direct const ref to dense entities for zero-allocation iteration
+        const std::vector<EntityID>& GetDenseEntities() const { return m_denseEntities; }
+        const std::vector<T>& GetComponentArray() const { return m_componentArray; }
+        std::vector<T>& GetComponentArray() { return m_componentArray; }
 
     private:
-        // Packed array of components
-        std::array<T, 10000> m_componentArray; // Fixed size for simplicity, can be dynamic
-        
-        // Map from EntityID to Index in m_componentArray
-        std::unordered_map<EntityID, size_t> m_entityToIndexMap;
-        
-        // Map from Index to EntityID
-        std::unordered_map<size_t, EntityID> m_indexToEntityMap;
-        
+        std::vector<T> m_componentArray;
+        std::vector<size_t> m_sparseEntityMap;
+        std::vector<EntityID> m_denseEntities;
         size_t m_size = 0;
     };
 
@@ -163,11 +181,19 @@ namespace Velox {
         /// Must be called once per type before Add/Remove/Get/HasComponent<T>() are used.
         template<typename T>
         void RegisterComponent() {
-            const char* typeName = typeid(T).name();
-            assert(m_componentTypes.find(typeName) == m_componentTypes.end() && "Registering component type more than once.");
+            std::type_index typeIndex(typeid(T));
+            assert(m_componentTypes.find(typeIndex) == m_componentTypes.end() && "Registering component type more than once.");
 
-            m_componentTypes.insert({typeName, GetComponentTypeID<T>()});
-            m_componentArrays.insert({typeName, std::make_shared<ComponentArray<T>>()});
+            ComponentTypeID typeID = GetComponentTypeID<T>();
+            m_componentTypes.insert({typeIndex, typeID});
+            
+            auto arr = std::make_shared<ComponentArray<T>>();
+            m_componentArrays.insert({typeIndex, arr});
+
+            if (typeID >= m_fastArrayLookup.size()) {
+                m_fastArrayLookup.resize(typeID + 32, nullptr);
+            }
+            m_fastArrayLookup[typeID] = arr.get();
         }
 
         /// Attaches a component of type T to `entity`.
@@ -184,42 +210,64 @@ namespace Velox {
 
         /// Returns a mutable reference to `entity`'s component of type T.
         template<typename T>
-        T& GetComponent(EntityID entity) {
-            return GetComponentArray<T>()->GetData(entity);
+        inline T& GetComponent(EntityID entity) {
+            ComponentTypeID typeID = GetComponentTypeID<T>();
+            assert(typeID < m_fastArrayLookup.size() && m_fastArrayLookup[typeID] != nullptr && "Component not registered before use.");
+            return static_cast<ComponentArray<T>*>(m_fastArrayLookup[typeID])->GetData(entity);
+        }
+
+        /// Returns true if component type T has been registered in this EntityManager.
+        template<typename T>
+        inline bool HasComponentType() const {
+            ComponentTypeID typeID = GetComponentTypeID<T>();
+            return typeID < m_fastArrayLookup.size() && m_fastArrayLookup[typeID] != nullptr;
         }
 
         /// Returns true if `entity` has a component of type T.
         template<typename T>
-        bool HasComponent(EntityID entity) {
-             return GetComponentArray<T>()->HasData(entity);
+        inline bool HasComponent(EntityID entity) const {
+            ComponentTypeID typeID = GetComponentTypeID<T>();
+            if (typeID >= m_fastArrayLookup.size() || !m_fastArrayLookup[typeID]) return false;
+            return static_cast<const ComponentArray<T>*>(m_fastArrayLookup[typeID])->HasData(entity);
         }
 
-        /// Returns the IDs of every entity currently holding a component of type T.
+        /// Returns the IDs of every entity currently holding a component of type T (zero-copy const ref).
+        /// If component type T is not registered in this world, safely returns an empty vector.
         template<typename T>
-        std::vector<EntityID> GetEntitiesWithComponent() {
-            auto array = GetComponentArray<T>();
-            std::vector<EntityID> entities;
-            entities.reserve(array->GetSize());
-            for (const auto& pair : array->GetEntityMap()) {
-                entities.push_back(pair.first);
+        inline const std::vector<EntityID>& GetEntitiesWithComponent() const {
+            ComponentTypeID typeID = GetComponentTypeID<T>();
+            if (typeID >= m_fastArrayLookup.size() || !m_fastArrayLookup[typeID]) {
+                static const std::vector<EntityID> emptyEntities;
+                return emptyEntities;
             }
-            return entities;
+            return static_cast<const ComponentArray<T>*>(m_fastArrayLookup[typeID])->GetDenseEntities();
+        }
+
+        /// Returns direct pointer to contiguous ComponentArray<T> for high-throughput solver loops.
+        template<typename T>
+        inline ComponentArray<T>* GetComponentArrayFast() {
+            ComponentTypeID typeID = GetComponentTypeID<T>();
+            if (typeID < m_fastArrayLookup.size()) {
+                return static_cast<ComponentArray<T>*>(m_fastArrayLookup[typeID]);
+            }
+            return nullptr;
         }
 
     private:
         /// Looks up (and type-casts) the ComponentArray registered for type T.
         template<typename T>
         std::shared_ptr<ComponentArray<T>> GetComponentArray() {
-            const char* typeName = typeid(T).name();
-            assert(m_componentTypes.find(typeName) != m_componentTypes.end() && "Component not registered before use.");
-            return std::static_pointer_cast<ComponentArray<T>>(m_componentArrays[typeName]);
+            std::type_index typeIndex(typeid(T));
+            assert(m_componentTypes.find(typeIndex) != m_componentTypes.end() && "Component not registered before use.");
+            return std::static_pointer_cast<ComponentArray<T>>(m_componentArrays[typeIndex]);
         }
         static const EntityID MAX_ENTITIES = 10000; ///< Upper bound on simultaneously live entities.
         std::queue<EntityID> m_availableEntities;    ///< Free list of recyclable entity IDs.
         uint32_t m_livingEntityCount = 0;            ///< Number of entities currently allocated.
 
-        std::unordered_map<const char*, ComponentTypeID> m_componentTypes;             ///< Registered component type IDs, keyed by RTTI name.
-        std::unordered_map<const char*, std::shared_ptr<IComponentArray>> m_componentArrays; ///< Backing storage per registered component type.
+        std::unordered_map<std::type_index, ComponentTypeID> m_componentTypes;             ///< Registered component type IDs, keyed by std::type_index.
+        std::unordered_map<std::type_index, std::shared_ptr<IComponentArray>> m_componentArrays; ///< Backing storage per registered component type.
+        std::vector<IComponentArray*> m_fastArrayLookup; ///< Flat O(1) direct pointer array indexed by ComponentTypeID.
     };
 
 }

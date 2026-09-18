@@ -31,7 +31,10 @@ extern "C" {
     }
 
     void Velox_DestroyEntity(VeloxWorld* world, EntityID entity) {
-        reinterpret_cast<World*>(world)->GetEntityManager().DestroyEntity(entity);
+        if (!world) return;
+        auto* w = reinterpret_cast<World*>(world);
+        w->GetPhysicsSystem().WakeTouching(entity);
+        w->GetEntityManager().DestroyEntity(entity);
     }
 
     void Velox_AddTransform(VeloxWorld* world, EntityID entity, float x, float y, float rotation) {
@@ -42,13 +45,46 @@ extern "C" {
         reinterpret_cast<World*>(world)->GetEntityManager().AddComponent(entity, tc);
     }
 
+    void Velox_SetPosition(VeloxWorld* world, EntityID entity, float x, float y) {
+        if (!world) return;
+        auto* w = reinterpret_cast<World*>(world);
+        auto& em = w->GetEntityManager();
+        if (em.HasComponent<TransformComponent>(entity)) {
+            auto& tc = em.GetComponent<TransformComponent>(entity);
+            tc.Position = {x, y};
+        }
+        w->GetPhysicsSystem().WakeTouching(entity);
+    }
+
+    void Velox_SetTransform(VeloxWorld* world, EntityID entity, float x, float y, float rotation) {
+        if (!world) return;
+        auto* w = reinterpret_cast<World*>(world);
+        auto& em = w->GetEntityManager();
+        if (em.HasComponent<TransformComponent>(entity)) {
+            auto& tc = em.GetComponent<TransformComponent>(entity);
+            tc.Position = {x, y};
+            tc.Rotation = rotation;
+        }
+        w->GetPhysicsSystem().WakeTouching(entity);
+    }
+
     void Velox_GetPosition(VeloxWorld* world, EntityID entity, float* x, float* y, float* rotation) {
         auto& em = reinterpret_cast<World*>(world)->GetEntityManager();
         if (em.HasComponent<TransformComponent>(entity)) {
             auto& tc = em.GetComponent<TransformComponent>(entity);
-            *x = tc.Position.x;
-            *y = tc.Position.y;
-            *rotation = tc.Rotation;
+            if (x) *x = tc.Position.x;
+            if (y) *y = tc.Position.y;
+            if (rotation) *rotation = tc.Rotation;
+        }
+    }
+
+    void Velox_GetVelocity(VeloxWorld* world, EntityID entity, float* vx, float* vy, float* angularVelocity) {
+        auto& em = reinterpret_cast<World*>(world)->GetEntityManager();
+        if (em.HasComponent<MovementComponent>(entity)) {
+            auto& mc = em.GetComponent<MovementComponent>(entity);
+            if (vx) *vx = mc.Velocity.x;
+            if (vy) *vy = mc.Velocity.y;
+            if (angularVelocity) *angularVelocity = mc.AngularVelocity;
         }
     }
 
@@ -136,38 +172,45 @@ extern "C" {
     }
 
     void Velox_SetVelocity(VeloxWorld* world, EntityID entity, float x, float y) {
-        auto& em = reinterpret_cast<World*>(world)->GetEntityManager();
+        if (!world) return;
+        auto* w = reinterpret_cast<World*>(world);
+        auto& em = w->GetEntityManager();
         if (em.HasComponent<MovementComponent>(entity)) {
             auto& mc = em.GetComponent<MovementComponent>(entity);
             mc.Velocity = {x, y};
         }
-        if (em.HasComponent<RigidBodyComponent>(entity)) {
-            auto& rb = em.GetComponent<RigidBodyComponent>(entity);
-            rb.IsSleeping = false;
-            rb.SleepTimer = 0.0f;
-        }
+        w->GetPhysicsSystem().WakeTouching(entity);
     }
 
     void Velox_SetAngularVelocity(VeloxWorld* world, EntityID entity, float angularVelocity) {
-        auto& em = reinterpret_cast<World*>(world)->GetEntityManager();
+        if (!world) return;
+        auto* w = reinterpret_cast<World*>(world);
+        auto& em = w->GetEntityManager();
         if (em.HasComponent<MovementComponent>(entity)) {
             auto& mc = em.GetComponent<MovementComponent>(entity);
             mc.AngularVelocity = angularVelocity;
         }
-        if (em.HasComponent<RigidBodyComponent>(entity)) {
-            auto& rb = em.GetComponent<RigidBodyComponent>(entity);
-            rb.IsSleeping = false;
-            rb.SleepTimer = 0.0f;
-        }
+        w->GetPhysicsSystem().WakeTouching(entity);
     }
 
     void Velox_SetDamping(VeloxWorld* world, EntityID entity, float linear, float angular) {
+        if (!world) return;
         auto& em = reinterpret_cast<World*>(world)->GetEntityManager();
         if (em.HasComponent<MovementComponent>(entity)) {
             auto& mc = em.GetComponent<MovementComponent>(entity);
             mc.LinearDamping = linear;
             mc.AngularDamping = angular;
         }
+    }
+
+    void Velox_WakeBody(VeloxWorld* world, EntityID entity) {
+        if (!world) return;
+        reinterpret_cast<World*>(world)->GetPhysicsSystem().WakeBody(entity);
+    }
+
+    void Velox_WakeTouching(VeloxWorld* world, EntityID entity) {
+        if (!world) return;
+        reinterpret_cast<World*>(world)->GetPhysicsSystem().WakeTouching(entity);
     }
 
     void Velox_AddCircleCollider(VeloxWorld* world, Velox::EntityID entityID, float radius) {
@@ -640,5 +683,20 @@ extern "C" {
             }
         }
         return 0;
+    }
+
+    void Velox_SetCollisionBeginCallback(VeloxWorld* world, VeloxCollisionCallback callback, void* userData) {
+        if (!world) return;
+        reinterpret_cast<World*>(world)->GetPhysicsSystem().SetCollisionBeginCallback(callback, userData);
+    }
+
+    void Velox_SetCollisionEndCallback(VeloxWorld* world, VeloxCollisionCallback callback, void* userData) {
+        if (!world) return;
+        reinterpret_cast<World*>(world)->GetPhysicsSystem().SetCollisionEndCallback(callback, userData);
+    }
+
+    void Velox_SetSensorCallback(VeloxWorld* world, VeloxSensorCallback callback, void* userData) {
+        if (!world) return;
+        reinterpret_cast<World*>(world)->GetPhysicsSystem().SetSensorCallback(callback, userData);
     }
 }
