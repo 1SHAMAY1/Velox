@@ -22,9 +22,19 @@ target_include_directories(Velox PUBLIC
 
 # Compiler flags & optimizations
 if(MSVC)
-    target_compile_options(Velox PRIVATE /W4 /O2 /arch:AVX2 /fp:fast /openmp)
+    target_compile_options(Velox PRIVATE 
+        /W4 /arch:AVX2 /fp:fast /openmp
+        $<$<CONFIG:Debug>:/Ob2>
+        $<$<CONFIG:Release>:/O2>
+        $<$<CONFIG:RelWithDebInfo>:/O2>
+        $<$<CONFIG:MinSizeRel>:/O1>
+    )
 else()
-    target_compile_options(Velox PRIVATE -Wall -Wextra -O3 -mavx2 -ffast-math -fopenmp)
+    target_compile_options(Velox PRIVATE 
+        -Wall -Wextra -mavx2 -ffast-math -fopenmp
+        $<$<CONFIG:Release>:-O3>
+        $<$<CONFIG:RelWithDebInfo>:-O2>
+    )
 endif()
 
 target_compile_definitions(Velox PUBLIC VELOX_STATIC)

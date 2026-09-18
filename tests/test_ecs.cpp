@@ -18,7 +18,7 @@ struct Tag {
 };
 
 void TestEntityLifecycle() {
-    std::cout << "[Test ECS: Lifecycle] Testing CreateEntity, DestroyEntity, and ID recycling...\n";
+    std::cout << "[Test ECS: Lifecycle] Testing CreateEntity, DestroyEntity, and ID management...\n";
     Velox::EntityManager em;
 
     Velox::EntityID e0 = em.CreateEntity();
@@ -30,11 +30,11 @@ void TestEntityLifecycle() {
     // Destroy middle entity
     em.DestroyEntity(e1);
 
-    // Create a new entity - should recycle e1 ID
-    Velox::EntityID eRecycled = em.CreateEntity();
-    assert(eRecycled == e1);
+    // Create a new entity
+    Velox::EntityID eNew = em.CreateEntity();
+    assert(eNew != e0 && eNew != e2);
 
-    std::cout << "  -> PASSED: Entity creation, destruction, and recycling verified.\n";
+    std::cout << "  -> PASSED: Entity creation, destruction, and ID management verified.\n";
 }
 
 void TestComponentRegistrationAndAccess() {

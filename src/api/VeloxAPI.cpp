@@ -96,6 +96,15 @@ extern "C" {
         return false;
     }
 
+    bool Velox_IsStatic(VeloxWorld* world, EntityID entity) {
+        if (!world) return true;
+        auto& em = reinterpret_cast<World*>(world)->GetEntityManager();
+        if (em.HasComponent<RigidBodyComponent>(entity)) {
+            return em.GetComponent<RigidBodyComponent>(entity).IsStatic;
+        }
+        return true;
+    }
+
     void Velox_AddRigidBody(VeloxWorld* world, EntityID entity, float mass, bool isStatic) {
         RigidBodyComponent rb;
         rb.Mass = mass;
@@ -105,7 +114,17 @@ extern "C" {
         rb.Inertia = mass * 1.0f; 
         rb.InverseInertia = (isStatic || mass == 0.0f) ? 0.0f : 1.0f / rb.Inertia;
         
-        reinterpret_cast<World*>(world)->GetEntityManager().AddComponent(entity, rb);
+        auto& em = reinterpret_cast<World*>(world)->GetEntityManager();
+        em.AddComponent(entity, rb);
+        if (!em.HasComponent<MovementComponent>(entity)) {
+            MovementComponent mc;
+            mc.Velocity = {0, 0};
+            mc.AngularVelocity = 0.0f;
+            mc.Torque = 0.0f;
+            mc.LinearDamping = 0.0f;
+            mc.AngularDamping = 0.0f;
+            em.AddComponent(entity, mc);
+        }
     }
 
     void Velox_AddMovement(VeloxWorld* world, EntityID entity) {
@@ -203,6 +222,25 @@ extern "C" {
         }
     }
 
+    void Velox_SetFixedRotation(VeloxWorld* world, EntityID entity, bool fixedRotation) {
+        if (!world) return;
+        auto& em = reinterpret_cast<World*>(world)->GetEntityManager();
+        if (em.HasComponent<RigidBodyComponent>(entity)) {
+            auto& rb = em.GetComponent<RigidBodyComponent>(entity);
+            rb.FixedRotation = fixedRotation;
+            if (fixedRotation) {
+                rb.InverseInertia = 0.0f;
+            } else {
+                rb.InverseInertia = (rb.IsStatic || rb.Inertia <= 0.0f) ? 0.0f : 1.0f / rb.Inertia;
+            }
+        }
+        if (fixedRotation && em.HasComponent<MovementComponent>(entity)) {
+            auto& mc = em.GetComponent<MovementComponent>(entity);
+            mc.AngularVelocity = 0.0f;
+            mc.Torque = 0.0f;
+        }
+    }
+
     void Velox_WakeBody(VeloxWorld* world, EntityID entity) {
         if (!world) return;
         reinterpret_cast<World*>(world)->GetPhysicsSystem().WakeBody(entity);
@@ -228,7 +266,7 @@ extern "C" {
             auto& rb = em.GetComponent<RigidBodyComponent>(entityID);
             if (!rb.IsStatic && rb.Mass > 0.0f) {
                 rb.Inertia = 0.5f * rb.Mass * radius * radius;
-                rb.InverseInertia = 1.0f / rb.Inertia;
+                rb.InverseInertia = rb.FixedRotation ? 0.0f : (1.0f / rb.Inertia);
             }
         }
     }
@@ -248,7 +286,7 @@ extern "C" {
             auto& rb = em.GetComponent<RigidBodyComponent>(entityID);
             if (!rb.IsStatic && rb.Mass > 0.0f) {
                 rb.Inertia = (1.0f / 12.0f) * rb.Mass * (width * width + height * height);
-                rb.InverseInertia = 1.0f / rb.Inertia;
+                rb.InverseInertia = rb.FixedRotation ? 0.0f : (1.0f / rb.Inertia);
             }
         }
     }
@@ -523,35 +561,6 @@ extern "C" {
             jc.Damping = 0.5f;
             jc.IsActive = true;
             em.AddComponent(jointEntity, jc);
-        }
-
-        for (int i = 0; i < nodeCount; ++i) {
-            // Connect to 3 opposite nodes to form a robust triangulation network
-            int oppBase = (i + nodeCount / 2) % nodeCount;
-            int offsets[] = {-1, 0, 1};
-            
-            for (int offset : offsets) {
-                int opp = (oppBase + offset + nodeCount) % nodeCount;
-                if (i >= opp) continue; // Avoid duplicate double-joints
-
-                float angle1 = (i * 2.0f * 3.14159265f) / nodeCount;
-                float angle2 = (opp * 2.0f * 3.14159265f) / nodeCount;
-                float dx = radius * (cosf(angle1) - cosf(angle2));
-                float dy = radius * (sinf(angle1) - sinf(angle2));
-                float restDist = sqrtf(dx*dx + dy*dy);
-
-                auto jointEntity = em.CreateEntity();
-                Velox::JointComponent jc;
-                jc.EntityA = nodes[i];
-                jc.EntityB = nodes[opp];
-                jc.LocalAnchorA = {0.0f, 0.0f};
-                jc.LocalAnchorB = {0.0f, 0.0f};
-                jc.TargetDistance = restDist;
-                jc.Compliance = jointCompliance * 4.0f; // Sightly softer compliance for diagonals
-                jc.Damping = 0.5f;
-                jc.IsActive = true;
-                em.AddComponent(jointEntity, jc);
-            }
         }
 
         auto softBodyEntity = em.CreateEntity();

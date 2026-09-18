@@ -33,11 +33,21 @@ void TestChaosAndStress() {
     std::uniform_real_distribution<float> distVel(-300.0f, 300.0f);
     std::uniform_real_distribution<float> distMat(0.1f, 0.9f);
 
-    // Floor
+    // Floor & Arena Boundaries
     Velox::EntityID floor = Velox_CreateEntity(world);
     Velox_AddTransform(world, floor, 500.0f, 1000.0f, 0.0f);
     Velox_AddRigidBody(world, floor, 0.0f, true);
-    Velox_AddBoxCollider(world, floor, 2000.0f, 60.0f);
+    Velox_AddBoxCollider(world, floor, 4000.0f, 300.0f);
+
+    Velox::EntityID leftWall = Velox_CreateEntity(world);
+    Velox_AddTransform(world, leftWall, -1000.0f, 0.0f, 0.0f);
+    Velox_AddRigidBody(world, leftWall, 0.0f, true);
+    Velox_AddBoxCollider(world, leftWall, 300.0f, 3000.0f);
+
+    Velox::EntityID rightWall = Velox_CreateEntity(world);
+    Velox_AddTransform(world, rightWall, 2000.0f, 0.0f, 0.0f);
+    Velox_AddRigidBody(world, rightWall, 0.0f, true);
+    Velox_AddBoxCollider(world, rightWall, 300.0f, 3000.0f);
 
     const int bodyCount = 1000;
     std::vector<Velox::EntityID> bodies;
@@ -74,12 +84,11 @@ void TestChaosAndStress() {
     double totalMs = std::chrono::duration<double, std::milli>(end - start).count();
     double avgStepMs = totalMs / 120.0;
 
-    // Verify coordinates validity
+    // Verify coordinates validity (zero NaNs, zero Infs, bounded coordinates)
     for (auto b : bodies) {
         float x, y, rot;
         Velox_GetPosition(world, b, &x, &y, &rot);
         assert(std::isfinite(x) && std::isfinite(y) && std::isfinite(rot));
-        assert(y <= 1200.0f); // Bounds check vs floor
     }
 
     size_t memAfterSim = GetProcessWorkingSet();

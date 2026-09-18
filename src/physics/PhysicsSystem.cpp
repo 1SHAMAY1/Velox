@@ -73,6 +73,9 @@ namespace Velox {
         bool hasGearJoints = gearArray && !gearArray->GetDenseEntities().empty();
         bool hasPulleyJoints = pulleyArray && !pulleyArray->GetDenseEntities().empty();
 
+        std::unordered_map<ContactPairKey, Vec2, ContactPairKeyHash> currentContacts;
+        std::unordered_map<ContactPairKey, bool, ContactPairKeyHash> currentSensors;
+
         for (int s = 0; s < subSteps; ++s) {
             // Snapshot velocity per sub-step so restitution acts on genuine approach velocity
             #pragma omp parallel for schedule(static, 64)
@@ -93,6 +96,24 @@ namespace Velox {
 
             if (hasSoftBodies) SolveSoftBodies(subDt);
             SolveConstraints(subDt);
+
+            // Accumulate contacts & sensors across sub-steps
+            for (const auto& contact : m_contacts) {
+                EntityID a = std::min(contact.idA, contact.idB);
+                EntityID b = std::max(contact.idA, contact.idB);
+                ContactPairKey key{a, b};
+
+                bool isSensor = false;
+                if (m_entityManager->HasComponent<ColliderComponent>(a) && m_entityManager->GetComponent<ColliderComponent>(a).IsSensor) isSensor = true;
+                if (m_entityManager->HasComponent<ColliderComponent>(b) && m_entityManager->GetComponent<ColliderComponent>(b).IsSensor) isSensor = true;
+
+                if (isSensor) {
+                    currentSensors[key] = true;
+                } else {
+                    currentContacts[key] = contact.normal;
+                }
+            }
+
             if (hasRevJoints) SolveRevoluteJoints(subDt);
             if (hasPrismJoints) SolvePrismaticJoints(subDt);
             if (hasGearJoints) SolveGearJoints(subDt);
@@ -102,8 +123,8 @@ namespace Velox {
         }
 
         // Island-level sleep propagation
-        for (const auto& contact : m_contacts) {
-            m_islandManager.Union(contact.idA, contact.idB);
+        for (const auto& kv : currentContacts) {
+            m_islandManager.Union(kv.first.idA, kv.first.idB);
         }
 
         for (auto id : entities) {
@@ -144,24 +165,6 @@ namespace Velox {
         }
 
         // --- Event-Based Architecture & Broken Contact Wake-Up ---
-        std::unordered_map<ContactPairKey, Vec2, ContactPairKeyHash> currentContacts;
-        std::unordered_map<ContactPairKey, bool, ContactPairKeyHash> currentSensors;
-
-        for (const auto& contact : m_contacts) {
-            EntityID a = std::min(contact.idA, contact.idB);
-            EntityID b = std::max(contact.idA, contact.idB);
-            ContactPairKey key{a, b};
-
-            bool isSensor = false;
-            if (m_entityManager->HasComponent<ColliderComponent>(a) && m_entityManager->GetComponent<ColliderComponent>(a).IsSensor) isSensor = true;
-            if (m_entityManager->HasComponent<ColliderComponent>(b) && m_entityManager->GetComponent<ColliderComponent>(b).IsSensor) isSensor = true;
-
-            if (isSensor) {
-                currentSensors[key] = true;
-            } else {
-                currentContacts[key] = contact.normal;
-            }
-        }
 
         // 1. Check Broken Contacts & Collision Ends (Wakes sleeping bodies when supporting objects move/disappear)
         for (const auto& kv : m_persistentContacts) {
@@ -475,9 +478,13 @@ namespace Velox {
             move.Velocity += acceleration * dt;
             transform.Position += move.Velocity * dt;
             
-            Real angularAccel = move.Torque * rb.InverseInertia;
-            move.AngularVelocity += angularAccel * dt;
-            transform.Rotation += move.AngularVelocity * dt;
+            if (rb.FixedRotation) {
+                move.AngularVelocity = 0.0f;
+            } else {
+                Real angularAccel = move.Torque * rb.InverseInertia;
+                move.AngularVelocity += angularAccel * dt;
+                transform.Rotation += move.AngularVelocity * dt;
+            }
 
             // Reset force accumulations
             move.Force = Vec2(0,0);
@@ -551,8 +558,14 @@ namespace Velox {
                     Real dist = std::sqrt(distSqr);
                     n = n * (1.0f / dist);
                     Real rawPen = radiusSum - dist;
-                    // Contact slop (0.1px) and relaxation (0.8) to prevent jitter and energy gain
-                    Real penetration = std::max(0.0f, rawPen - 0.1f) * 0.8f;
+                    Real e = 0.5f;
+                    if (m_entityManager->HasComponent<PhysicalMaterialComponent>(idA) &&
+                        m_entityManager->HasComponent<PhysicalMaterialComponent>(idB)) {
+                        e = std::min(m_entityManager->GetComponent<PhysicalMaterialComponent>(idA).Restitution,
+                                     m_entityManager->GetComponent<PhysicalMaterialComponent>(idB).Restitution);
+                    }
+                    // For pure elastic collisions, use full penetration; otherwise apply contact slop and relaxation
+                    Real penetration = (e >= 0.95f) ? rawPen : std::max(0.0f, rawPen - 0.1f) * 0.8f;
 
                     // Wake up bodies only on genuine contact
                     if (rbA.IsSleeping) { rbA.IsSleeping = false; rbA.SleepTimer = 0.0f; }
@@ -605,11 +618,13 @@ namespace Velox {
                                                    dt, sweptNorm);
                     if (toi.hit && toi.toi >= 0.0f && toi.toi <= dt) {
                         Vec2 hitPos = (circlePos - cV * dt) + cV * toi.toi + sweptNorm * 0.5f;
-                        if (!cRb.IsStatic) cTrans.Position = hitPos - cCol.CenterOffset;
-                        if (moveArray && moveArray->HasData(circleID)) {
-                            auto& mv = moveArray->GetData(circleID);
-                            Real vn = mv.Velocity.Dot(sweptNorm);
-                            if (vn < 0.0f) mv.Velocity -= sweptNorm * vn;
+                        if (!cCol.IsSensor && !bCol.IsSensor) {
+                            if (!cRb.IsStatic) cTrans.Position = hitPos - cCol.CenterOffset;
+                            if (moveArray && moveArray->HasData(circleID)) {
+                                auto& mv = moveArray->GetData(circleID);
+                                Real vn = mv.Velocity.Dot(sweptNorm);
+                                if (vn < 0.0f) mv.Velocity -= sweptNorm * vn;
+                            }
                         }
                         m_contacts.PushBack({circleID, boxID, sweptNorm, 0.5f, {hitPos - sweptNorm * cCol.Data.Radius}});
                         return;
@@ -632,10 +647,25 @@ namespace Velox {
                 Real distSqr = n.MagnitudeSqr();
                 Real radius = cCol.Data.Radius;
 
-                if (distSqr < radius * radius && distSqr > 1e-8f) {
+                if (distSqr < radius * radius) {
                     Real dist = std::sqrt(distSqr);
-                    n = n * (1.0f / dist); 
-                    Real rawPen = radius - dist;
+                    Real rawPen = 0.0f;
+                    if (dist > 1e-4f) {
+                        n = n * (1.0f / dist); 
+                        rawPen = radius - dist;
+                    } else {
+                        Real dx = boxHalf.x - std::abs(localPos.x);
+                        Real dy = boxHalf.y - std::abs(localPos.y);
+                        if (dx < dy) {
+                            Vec2 localN = (localPos.x < 0) ? Vec2(-1, 0) : Vec2(1, 0);
+                            n = localN.Rotate(bTrans.Rotation);
+                            rawPen = dx + radius;
+                        } else {
+                            Vec2 localN = (localPos.y < 0) ? Vec2(0, -1) : Vec2(0, 1);
+                            n = localN.Rotate(bTrans.Rotation);
+                            rawPen = dy + radius;
+                        }
+                    }
                     Real penetration = std::max(0.0f, rawPen - 0.1f) * 0.8f;
 
                     // Wake up bodies on contact
@@ -1317,8 +1347,15 @@ namespace Velox {
                 Real wLinkB = rbB.InverseInertia;
                 Real sumInvI = wLinkA + wLinkB;
                 if (sumInvI > 0.0001f) {
-                    // Angular position difference over step
-                    Real currentAngVel = (transB.Rotation - transA.Rotation) / dt;
+                    Real w1_ang = 0.0f;
+                    Real w2_ang = 0.0f;
+                    if (m_entityManager->HasComponent<MovementComponent>(idA)) {
+                        w1_ang = m_entityManager->GetComponent<MovementComponent>(idA).AngularVelocity;
+                    }
+                    if (m_entityManager->HasComponent<MovementComponent>(idB)) {
+                        w2_ang = m_entityManager->GetComponent<MovementComponent>(idB).AngularVelocity;
+                    }
+                    Real currentAngVel = w2_ang - w1_ang;
                     Real targetAngVel = joint.MotorSpeed;
                     Real error = targetAngVel - currentAngVel;
 
@@ -1327,8 +1364,8 @@ namespace Velox {
                     Real maxImp = joint.MaxMotorTorque * dt;
                     impulse = std::max(-maxImp, std::min(impulse, maxImp));
 
-                    if (!rbA.IsStatic) transA.Rotation -= impulse * wLinkA * dt;
-                    if (!rbB.IsStatic) transB.Rotation += impulse * wLinkB * dt;
+                    if (!rbA.IsStatic) transA.Rotation -= impulse * wLinkA;
+                    if (!rbB.IsStatic) transB.Rotation += impulse * wLinkB;
                 }
             }
         }
@@ -1353,38 +1390,23 @@ namespace Velox {
             auto& rbA = m_entityManager->GetComponent<RigidBodyComponent>(idA);
             auto& rbB = m_entityManager->GetComponent<RigidBodyComponent>(idB);
 
-            // Anchors in world space
+            // Positional error (2D vector constraint: pin A anchor equals pin B anchor)
             Vec2 rA = joint.LocalAnchorA.Rotate(transA.Rotation);
             Vec2 rB = joint.LocalAnchorB.Rotate(transB.Rotation);
 
             Vec2 pA = transA.Position + rA;
             Vec2 pB = transB.Position + rB;
 
-            // Positional error (2D vector constraint)
             Vec2 C = pA - pB;
             Real dist = C.Magnitude();
-            if (dist > 0.0f) {
-                Vec2 n = C.Normalized();
-
+            if (dist > 0.0001f) {
                 Real w1 = rbA.InverseMass;
                 Real w2 = rbB.InverseMass;
-
-                Real rAxn = rA.x * n.y - rA.y * n.x;
-                Real rBxn = rB.x * n.y - rB.y * n.x;
-                Real w1_rot = rbA.InverseInertia * rAxn * rAxn;
-                Real w2_rot = rbB.InverseInertia * rBxn * rBxn;
-
-                Real denominator = w1 + w2 + w1_rot + w2_rot + (joint.Compliance / (dt * dt));
-                if (denominator > 0.0001f) {
-                    Real lambda = -dist / denominator;
-                    if (!rbA.IsStatic) {
-                        transA.Position += n * (lambda * w1);
-                        transA.Rotation += lambda * rbA.InverseInertia * rAxn;
-                    }
-                    if (!rbB.IsStatic) {
-                        transB.Position -= n * (lambda * w2);
-                        transB.Rotation -= lambda * rbB.InverseInertia * rBxn;
-                    }
+                Real sumMass = w1 + w2 + (joint.Compliance / (dt * dt));
+                if (sumMass > 0.0001f) {
+                    Vec2 correction = C * (1.0f / sumMass);
+                    if (!rbA.IsStatic) transA.Position -= correction * w1;
+                    if (!rbB.IsStatic) transB.Position += correction * w2;
                 }
             }
 
@@ -1403,36 +1425,30 @@ namespace Velox {
                     Real denominator = w1_rot + w2_rot;
                     if (denominator > 0.0001f) {
                         Real lambda = -C_angle / denominator;
-                        if (!rbA.IsStatic) transA.Rotation -= lambda * w1_rot;
-                        if (!rbB.IsStatic) transB.Rotation += lambda * w2_rot;
+                        if (!rbA.IsStatic && !rbA.FixedRotation) transA.Rotation -= lambda * w1_rot;
+                        if (!rbB.IsStatic && !rbB.FixedRotation) transB.Rotation += lambda * w2_rot;
                     }
                 }
             }
 
-            // Angular Motor
+            // Angular Motor (XPBD velocity-error motor drive)
             if (joint.EnableMotor) {
-                Real wLinkA = rbA.InverseInertia;
-                Real wLinkB = rbB.InverseInertia;
-                Real sumInvI = wLinkA + wLinkB;
-                if (sumInvI > 0.0001f) {
-                    Real w1_ang = 0.0f;
-                    Real w2_ang = 0.0f;
-                    if (m_entityManager->HasComponent<MovementComponent>(idA)) {
-                        w1_ang = m_entityManager->GetComponent<MovementComponent>(idA).AngularVelocity;
-                    }
-                    if (m_entityManager->HasComponent<MovementComponent>(idB)) {
-                        w2_ang = m_entityManager->GetComponent<MovementComponent>(idB).AngularVelocity;
-                    }
-                    Real currentAngVel = w2_ang - w1_ang;
-                    Real targetAngVel = joint.MotorSpeed;
-                    Real error = targetAngVel - currentAngVel;
+                Real w1_ang = 0.0f, w2_ang = 0.0f;
+                if (m_entityManager->HasComponent<MovementComponent>(idA)) {
+                    w1_ang = m_entityManager->GetComponent<MovementComponent>(idA).AngularVelocity;
+                }
+                if (m_entityManager->HasComponent<MovementComponent>(idB)) {
+                    w2_ang = m_entityManager->GetComponent<MovementComponent>(idB).AngularVelocity;
+                }
+                Real currentSpeed = w2_ang - w1_ang;
+                Real targetSpeed = joint.MotorSpeed;
+                Real speedDelta = targetSpeed - currentSpeed;
 
-                    Real impulse = error / sumInvI;
-                    Real maxImp = joint.MaxMotorTorque * dt;
-                    impulse = std::max(-maxImp, std::min(impulse, maxImp));
-
-                    if (!rbA.IsStatic) transA.Rotation -= impulse * wLinkA;
-                    if (!rbB.IsStatic) transB.Rotation += impulse * wLinkB;
+                if (!rbB.IsStatic && !rbB.FixedRotation) {
+                    transB.Rotation += speedDelta * dt;
+                }
+                if (!rbA.IsStatic && !rbA.FixedRotation) {
+                    transA.Rotation -= speedDelta * dt;
                 }
             }
         }
@@ -1484,11 +1500,11 @@ namespace Velox {
                 Real lambda_perp = -C_perp / denom_perp;
                 if (!rbA.IsStatic) {
                     transA.Position -= perpA * (lambda_perp * w1);
-                    transA.Rotation -= lambda_perp * rbA.InverseInertia * rAxP;
+                    if (!rbA.FixedRotation) transA.Rotation -= lambda_perp * rbA.InverseInertia * rAxP;
                 }
                 if (!rbB.IsStatic) {
                     transB.Position += perpA * (lambda_perp * w2);
-                    transB.Rotation += lambda_perp * rbB.InverseInertia * rBxP;
+                    if (!rbB.FixedRotation) transB.Rotation += lambda_perp * rbB.InverseInertia * rBxP;
                 }
             }
 
@@ -1506,8 +1522,8 @@ namespace Velox {
             Real denom_ang = w1_rot_ang + w2_rot_ang;
             if (denom_ang > 0.0001f) {
                 Real lambda_ang = -C_angle / denom_ang;
-                if (!rbA.IsStatic) transA.Rotation -= lambda_ang * w1_rot_ang;
-                if (!rbB.IsStatic) transB.Rotation += lambda_ang * w2_rot_ang;
+                if (!rbA.IsStatic && !rbA.FixedRotation) transA.Rotation -= lambda_ang * w1_rot_ang;
+                if (!rbB.IsStatic && !rbB.FixedRotation) transB.Rotation += lambda_ang * w2_rot_ang;
             }
 
             // 3. Translation limits along sliding axis
@@ -1521,69 +1537,42 @@ namespace Velox {
                 }
 
                 if (std::abs(C_limit) > 0.001f) {
-                    Real rAxL = rA.x * axisA.y - rA.y * axisA.x;
-                    Real rBxL = rB.x * axisA.y - rB.y * axisA.x;
-                    Real w1_rot_L = rbA.InverseInertia * rAxL * rAxL;
-                    Real w2_rot_L = rbB.InverseInertia * rBxL * rBxL;
-                    Real denom_limit = w1 + w2 + w1_rot_L + w2_rot_L;
+                    Real denom_limit = w1 + w2;
                     if (denom_limit > 0.0001f) {
                         Real lambda_limit = -C_limit / denom_limit;
-                        if (!rbA.IsStatic) {
-                            transA.Position -= axisA * (lambda_limit * w1);
-                            transA.Rotation -= lambda_limit * rbA.InverseInertia * rAxL;
-                        }
-                        if (!rbB.IsStatic) {
-                            transB.Position += axisA * (lambda_limit * w2);
-                            transB.Rotation += lambda_limit * rbB.InverseInertia * rBxL;
-                        }
+                        if (!rbA.IsStatic) transA.Position -= axisA * (lambda_limit * w1);
+                        if (!rbB.IsStatic) transB.Position += axisA * (lambda_limit * w2);
                     }
                 }
             }
 
-            // 3. Linear motor along sliding axis (Applied before hard limit enforcement)
+            // 4. Linear motor along sliding axis (Continuous back-and-forth oscillation)
             if (joint.EnableMotor) {
-                Real sumM = w1 + w2;
-                if (sumM > 0.0001f) {
-                    Vec2 v1 = {0, 0};
-                    Vec2 v2 = {0, 0};
-                    if (m_entityManager->HasComponent<MovementComponent>(idA)) {
-                        v1 = m_entityManager->GetComponent<MovementComponent>(idA).Velocity;
-                    }
-                    if (m_entityManager->HasComponent<MovementComponent>(idB)) {
-                        v2 = m_entityManager->GetComponent<MovementComponent>(idB).Velocity;
-                    }
-                    Real currentSpeed = (v2 - v1).Dot(axisA);
-                    Real targetSpeed = joint.MotorSpeed;
-                    Real error = targetSpeed - currentSpeed;
-
-                    Real impulse = error / sumM;
-                    Real maxImp = joint.MaxMotorForce * dt;
-                    impulse = std::max(-maxImp, std::min(impulse, maxImp));
-
-                    if (!rbA.IsStatic) transA.Position -= axisA * (impulse * w1 * dt);
-                    if (!rbB.IsStatic) transB.Position += axisA * (impulse * w2 * dt);
+                Real v1 = 0.0f, v2 = 0.0f;
+                if (m_entityManager->HasComponent<MovementComponent>(idA)) {
+                    v1 = m_entityManager->GetComponent<MovementComponent>(idA).Velocity.Dot(axisA);
                 }
-            }
-
-            // 4. Translation limits along sliding axis (Hard clamp enforcement)
-            if (joint.LimitsEnabled) {
-                // Refresh anchors after motor
-                rA = joint.LocalAnchorA.Rotate(transA.Rotation);
-                rB = joint.LocalAnchorB.Rotate(transB.Rotation);
-                pA = transA.Position + rA;
-                pB = transB.Position + rB;
-                d = pB - pA;
-                Real translation = d.Dot(axisA);
-
-                if (translation < joint.MinTranslation) {
-                    Real delta = joint.MinTranslation - translation;
-                    if (!rbB.IsStatic) transB.Position += axisA * delta;
-                    else if (!rbA.IsStatic) transA.Position -= axisA * delta;
-                } else if (translation > joint.MaxTranslation) {
-                    Real delta = joint.MaxTranslation - translation;
-                    if (!rbB.IsStatic) transB.Position += axisA * delta;
-                    else if (!rbA.IsStatic) transA.Position -= axisA * delta;
+                if (m_entityManager->HasComponent<MovementComponent>(idB)) {
+                    v2 = m_entityManager->GetComponent<MovementComponent>(idB).Velocity.Dot(axisA);
                 }
+                Real currentSpeed = v2 - v1;
+                Real targetSpeed = joint.MotorSpeed;
+
+                // Auto-reverse when reaching track limits
+                if (joint.LimitsEnabled) {
+                    Real translation = d.Dot(axisA);
+                    if (translation >= joint.MaxTranslation - 2.0f && joint.MotorSpeed > 0.0f) {
+                        joint.MotorSpeed = -std::abs(joint.MotorSpeed);
+                        targetSpeed = joint.MotorSpeed;
+                    } else if (translation <= joint.MinTranslation + 2.0f && joint.MotorSpeed < 0.0f) {
+                        joint.MotorSpeed = std::abs(joint.MotorSpeed);
+                        targetSpeed = joint.MotorSpeed;
+                    }
+                }
+
+                Real speedDelta = targetSpeed - currentSpeed;
+                if (!rbB.IsStatic) transB.Position += axisA * (speedDelta * dt);
+                if (!rbA.IsStatic) transA.Position -= axisA * (speedDelta * dt);
             }
         }
     }
@@ -1679,11 +1668,11 @@ namespace Velox {
                 Real lambda = -C / denominator;
                 if (!rbA.IsStatic) {
                     transA.Position += nA * (lambda * w1);
-                    transA.Rotation += lambda * rbA.InverseInertia * rAxn;
+                    if (!rbA.FixedRotation) transA.Rotation += lambda * rbA.InverseInertia * rAxn;
                 }
                 if (!rbB.IsStatic) {
                     transB.Position += nB * (lambda * joint.Ratio * w2);
-                    transB.Rotation += lambda * joint.Ratio * rbB.InverseInertia * rBxn;
+                    if (!rbB.FixedRotation) transB.Rotation += lambda * joint.Ratio * rbB.InverseInertia * rBxn;
                 }
             }
         }
@@ -1706,11 +1695,20 @@ namespace Velox {
             // In XPBD: blend derived velocity from positional correction with integrated velocity
             // to preserve momentum and prevent positional overlap corrections from creating artificial kinetic energy
             Vec2 posDeltaVel = (trans.Position - move.PrevPosition) / dt;
-            Real posDeltaAngVel = (trans.Rotation - move.PrevRotation) / dt;
+            Real posDeltaAngVel = 0.0f;
+            if (rb.FixedRotation) {
+                trans.Rotation = move.PrevRotation;
+                move.AngularVelocity = 0.0f;
+            } else {
+                Real dTheta = trans.Rotation - move.PrevRotation;
+                while (dTheta > 3.14159265f) dTheta -= 2.0f * 3.14159265f;
+                while (dTheta < -3.14159265f) dTheta += 2.0f * 3.14159265f;
+                posDeltaAngVel = dTheta / dt;
+            }
 
-            // Strict velocity bound: derived velocity magnitude cannot exceed incoming velocity + gravity acceleration
+            // Strict velocity bound: preserve genuine rebound velocity and gravity acceleration
             Real prevSpeed = move.PrevVelocity.Magnitude();
-            Real maxAllowedSpeed = std::max(prevSpeed * 1.05f, 20.0f);
+            Real maxAllowedSpeed = std::max(prevSpeed * 1.5f, 50.0f);
             Real posDeltaSpeed = posDeltaVel.Magnitude();
             if (posDeltaSpeed > maxAllowedSpeed && prevSpeed > 0.0f) {
                 posDeltaVel = posDeltaVel * (maxAllowedSpeed / posDeltaSpeed);
@@ -1762,13 +1760,18 @@ namespace Velox {
             EntityID idA = contact.idA;
             EntityID idB = contact.idB;
 
+            if (m_entityManager->HasComponent<ColliderComponent>(idA) && m_entityManager->GetComponent<ColliderComponent>(idA).IsSensor) continue;
+            if (m_entityManager->HasComponent<ColliderComponent>(idB) && m_entityManager->GetComponent<ColliderComponent>(idB).IsSensor) continue;
+
             auto& rbA = m_entityManager->GetComponent<RigidBodyComponent>(idA);
-            auto& moveA = m_entityManager->GetComponent<MovementComponent>(idA);
             auto& transA = m_entityManager->GetComponent<TransformComponent>(idA);
 
             auto& rbB = m_entityManager->GetComponent<RigidBodyComponent>(idB);
-            auto& moveB = m_entityManager->GetComponent<MovementComponent>(idB);
             auto& transB = m_entityManager->GetComponent<TransformComponent>(idB);
+
+            MovementComponent dummyA{}, dummyB{};
+            MovementComponent& moveA = m_entityManager->HasComponent<MovementComponent>(idA) ? m_entityManager->GetComponent<MovementComponent>(idA) : dummyA;
+            MovementComponent& moveB = m_entityManager->HasComponent<MovementComponent>(idB) ? m_entityManager->GetComponent<MovementComponent>(idB) : dummyB;
 
             Real w1 = rbA.InverseMass;
             Real w2 = rbB.InverseMass;
@@ -1813,11 +1816,12 @@ namespace Velox {
                 Vec2 vB_cur = moveB.Velocity + Vec2(-moveB.AngularVelocity * rB.y, moveB.AngularVelocity * rB.x);
                 Real vn_cur = (vA_cur - vB_cur).Dot(contact.normal);
 
-                // Resting contact threshold (25.0 px/s): if incoming speed is below gravity sub-step, do not bounce
-                Real effectiveRestitution = (vn_in > -25.0f) ? 0.0f : e;
+                // Resting contact threshold: only zero out restitution for low-speed impacts when e < 0.95
+                Real effectiveRestitution = (e >= 0.95f) ? e : ((vn_in > -25.0f) ? 0.0f : e);
+                Real restitutionThreshold = (e >= 0.95f) ? -0.1f : -25.0f;
                 Real jn = 0.0f;
 
-                if (vn_in < -25.0f && effectiveRestitution > 0.0f) {
+                if (vn_in < restitutionThreshold && effectiveRestitution > 0.0f) {
                     Real targetVn = -effectiveRestitution * vn_in;
                     Real deltaVn = targetVn - vn_cur;
                     if (deltaVn > 0.0f && denomNormal > 0.0001f) {
@@ -1825,11 +1829,11 @@ namespace Velox {
                         Vec2 normalImpulse = contact.normal * jn;
                         if (!rbA.IsStatic) {
                             moveA.Velocity += normalImpulse * w1;
-                            moveA.AngularVelocity += rbA.InverseInertia * (rA.x * normalImpulse.y - rA.y * normalImpulse.x);
+                            if (!rbA.FixedRotation) moveA.AngularVelocity += rbA.InverseInertia * (rA.x * normalImpulse.y - rA.y * normalImpulse.x);
                         }
                         if (!rbB.IsStatic) {
                             moveB.Velocity -= normalImpulse * w2;
-                            moveB.AngularVelocity -= rbB.InverseInertia * (rB.x * normalImpulse.y - rB.y * normalImpulse.x);
+                            if (!rbB.FixedRotation) moveB.AngularVelocity -= rbB.InverseInertia * (rB.x * normalImpulse.y - rB.y * normalImpulse.x);
                         }
                     }
                 }
@@ -1852,9 +1856,9 @@ namespace Velox {
                         Real jt = -vt / (denomTangent * numPts);
 
                         Real frictionCoefficient = staticFriction;
-                        // Approximate normal force for resting contact: use gravity load if jn is 0
+                        // Approximate normal force for resting contact: distribute gravity load across all contact points in manifold
                         Real gravityMag = m_gravity.Magnitude();
-                        Real normalForce = (jn > 0.0001f) ? jn : (gravityMag * dt / rbA.Mass);
+                        Real normalForce = (jn > 0.0001f) ? jn : ((rbA.Mass * gravityMag * dt) / numPts);
                         Real maxFriction = frictionCoefficient * normalForce;
                         if (std::abs(jt) > maxFriction) {
                             jt = (jt > 0.0f ? 1.0f : -1.0f) * dynamicFriction * normalForce;
@@ -1863,11 +1867,14 @@ namespace Velox {
                         Vec2 frictionImpulse = tangent * jt;
                         if (!rbA.IsStatic) {
                             moveA.Velocity += frictionImpulse * w1;
-                            moveA.AngularVelocity += rbA.InverseInertia * (rA.x * frictionImpulse.y - rA.y * frictionImpulse.x);
+                            // On flat horizontal stacked contacts under vertical normal, cancel artificial rotational couple if near resting
+                            Real angularFrictionArm = (std::abs(contact.normal.y) > 0.95f && std::abs(moveA.Velocity.y) < 5.0f) ? 0.0f : 1.0f;
+                            moveA.AngularVelocity += rbA.InverseInertia * (rA.x * frictionImpulse.y - rA.y * frictionImpulse.x) * angularFrictionArm;
                         }
                         if (!rbB.IsStatic) {
                             moveB.Velocity -= frictionImpulse * w2;
-                            moveB.AngularVelocity -= rbB.InverseInertia * (rB.x * frictionImpulse.y - rB.y * frictionImpulse.x);
+                            Real angularFrictionArm = (std::abs(contact.normal.y) > 0.95f && std::abs(moveB.Velocity.y) < 5.0f) ? 0.0f : 1.0f;
+                            moveB.AngularVelocity -= rbB.InverseInertia * (rB.x * frictionImpulse.y - rB.y * frictionImpulse.x) * angularFrictionArm;
                         }
                     }
                 }

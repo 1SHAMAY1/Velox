@@ -141,16 +141,17 @@ void SetupBouncingBalls(VeloxWorld* world, std::vector<VisualEntity>& entities, 
         Velox_AddRigidBody(world, id, 0.0f, true); // Static
         Velox_AddMovement(world, id);
         Velox_AddBoxCollider(world, id, w.w, w.h);
+        Velox_AddPhysicalMaterial(world, id, 0.0f, 0.0f, 1.0f); // 1.0 Restitution wall
         
         VisualEntity ve;
         ve.id = id; ve.color = WHITE; ve.type = 1; ve.width = w.w; ve.height = w.h;
         entities.push_back(ve);
     }
 
-    // Set directional gravity (straight down for this scene)
-    Velox_SetGravity(world, 0.0f, 980.0f);
+    // Set Zero Gravity for perpetual pure kinetic bouncing gas in all directions
+    Velox_SetGravity(world, 0.0f, 0.0f);
 
-    // 2. Dynamic Balls
+    // 2. Dynamic Balls - Constant speed (100% elastic, 0 damping, 0 friction)
     for (int i = 0; i < 2; ++i) {
         auto id = Velox_CreateEntity(world);
         float startX = (i == 0) ? screenWidth * 0.35f : screenWidth * 0.65f;
@@ -160,12 +161,12 @@ void SetupBouncingBalls(VeloxWorld* world, std::vector<VisualEntity>& entities, 
         Velox_AddRigidBody(world, id, 1.0f, false);
         Velox_AddMovement(world, id);
         Velox_AddCircleCollider(world, id, 20.0f);
-        // High restitution so bouncing is visible
-        Velox_AddPhysicalMaterial(world, id, 0.1f, 0.05f, 0.85f);
-        float vx = (i == 0) ? 350.0f : -350.0f;
-        Velox_SetVelocity(world, id, vx, 1000.0f);
+        // Pure elastic (1.0 Restitution, 0 friction) for permanent constant speed
+        Velox_AddPhysicalMaterial(world, id, 0.0f, 0.0f, 1.0f);
+        float vx = (i == 0) ? 500.0f : -520.0f;
+        float vy = (i == 0) ? 480.0f : -460.0f;
+        Velox_SetVelocity(world, id, vx, vy);
         Velox_SetDamping(world, id, 0.0f, 0.0f);
-        Velox_AddRotation(world, id, 5.0f, 0, 0);
 
         VisualEntity ve;
         ve.id = id; ve.color = (i == 0) ? MAROON : DARKBLUE; ve.type = 0; ve.radius = 20.0f;
@@ -187,6 +188,7 @@ void SetupBouncingBalls(VeloxWorld* world, std::vector<VisualEntity>& entities, 
         Velox_AddRigidBody(world, id, 0.0f, true);
         Velox_AddMovement(world, id);
         Velox_AddCircleCollider(world, id, obs.r);
+        Velox_AddPhysicalMaterial(world, id, 0.0f, 0.0f, 1.0f); // 1.0 Restitution obstacle
         VisualEntity ve; ve.id = id; ve.color = GRAY; ve.type = 0; ve.radius = obs.r;
         entities.push_back(ve);
     }
@@ -270,24 +272,14 @@ void SetupOscillationDemo(VeloxWorld* world, std::vector<VisualEntity>& entities
 
 void SetupProjectileDemo(VeloxWorld* world, std::vector<VisualEntity>& entities, int screenWidth, int screenHeight) {
     AddScreenBoundaries(world, entities, screenWidth, screenHeight);
-    // Ground
-    auto groundId = Velox_CreateEntity(world);
-    Velox_AddTransform(world, groundId, screenWidth / 2.0f, screenHeight - 20.0f, 0.0f);
-    Velox_AddRigidBody(world, groundId, 0.0f, true);
-    Velox_AddBoxCollider(world, groundId, screenWidth, 40.0f);
-    // Ground Material: Moderate Friction, Zero Restitution
-    Velox_AddPhysicalMaterial(world, groundId, 0.8f, 0.6f, 0.0f);
-    
-    VisualEntity groundVe; groundVe.id = groundId; groundVe.color = DARKGRAY; groundVe.type = 1; groundVe.width = (float)screenWidth; groundVe.height = 40.0f;
-    entities.push_back(groundVe);
 
     // Native Directional Gravity
     Velox_SetGravity(world, 0.0f, 980.0f);
 
-    // Targets (Stack of responsive boxes on the ground floor)
-    float startX = screenWidth * 0.72f;
+    // Targets (Stack of responsive boxes on the ground floor - placed cleanly in view)
+    float startX = 660.0f;
     float boxSize = 36.0f;
-    float startY = screenHeight - 40.0f - (boxSize * 0.5f);
+    float startY = screenHeight - 20.0f - (boxSize * 0.5f); // bottom boundary top surface
     
     for (int i = 0; i < 6; ++i) {
         for (int j = 0; j < 3; ++j) {
@@ -757,9 +749,8 @@ void SetupRevolutePrismaticDemo(VeloxWorld* world, std::vector<VisualEntity>& en
         VisualEntity armVe; armVe.id = arm; armVe.color = ORANGE; armVe.type = 1; armVe.width = 120.0f; armVe.height = 16.0f;
         entities.push_back(armVe);
 
-        // Revolute Joint: limits enabled [-1.0, 1.0], motor enabled speed=3.0, maxTorque=25.0
-        Velox_AddRevoluteJoint(world, pin, arm, 0.0f, 0.0f, -60.0f, 0.0f, 0.0f, true, -1.0f, 1.0f, true, 3.0f, 25.0f);
-        g_jointVisuals.push_back({pin, arm, ORANGE});
+        // Revolute Joint: continuous 360 rotation motor (speed=1.5 rad/s, maxTorque=500000.0)
+        Velox_AddRevoluteJoint(world, pin, arm, 0.0f, 0.0f, -60.0f, 0.0f, 0.0f, false, 0.0f, 0.0f, true, 1.5f, 500000.0f);
     }
 
     // --- 2. Prismatic Joint (Slider on track with motor, Top-Right canvas) ---
@@ -809,7 +800,7 @@ void SetupRevolutePrismaticDemo(VeloxWorld* world, std::vector<VisualEntity>& en
         VisualEntity w1Ve; w1Ve.id = wheel1; w1Ve.color = GREEN; w1Ve.type = 0; w1Ve.radius = 45.0f;
         entities.push_back(w1Ve);
 
-        Velox_AddRevoluteJoint(world, pin1, wheel1, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, false, 0.0f, 0.0f, true, 2.0f, 15.0f);
+        Velox_AddRevoluteJoint(world, pin1, wheel1, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, false, 0.0f, 0.0f, true, 1.2f, 100000.0f);
 
         auto pin2 = Velox_CreateEntity(world);
         Velox_AddTransform(world, pin2, g2X, g2Y, 0.0f);
@@ -843,6 +834,7 @@ void SetupRevolutePrismaticDemo(VeloxWorld* world, std::vector<VisualEntity>& en
         Velox_AddTransform(world, weight1, leftX, weightY, 0.0f);
         Velox_AddRigidBody(world, weight1, 2.0f, false);
         Velox_AddMovement(world, weight1);
+        Velox_SetFixedRotation(world, weight1, true); // Lock rotation so boxes stay strictly upright
         Velox_AddBoxCollider(world, weight1, 40.0f, 40.0f);
         VisualEntity w1Ve; w1Ve.id = weight1; w1Ve.color = PURPLE; w1Ve.type = 1; w1Ve.width = 40.0f; w1Ve.height = 40.0f;
         entities.push_back(w1Ve);
@@ -851,6 +843,7 @@ void SetupRevolutePrismaticDemo(VeloxWorld* world, std::vector<VisualEntity>& en
         Velox_AddTransform(world, weight2, rightX, weightY, 0.0f);
         Velox_AddRigidBody(world, weight2, 4.0f, false);
         Velox_AddMovement(world, weight2);
+        Velox_SetFixedRotation(world, weight2, true); // Lock rotation so boxes stay strictly upright
         Velox_AddBoxCollider(world, weight2, 40.0f, 40.0f);
         VisualEntity w2Ve; w2Ve.id = weight2; w2Ve.color = MAGENTA; w2Ve.type = 1; w2Ve.width = 40.0f; w2Ve.height = 40.0f;
         entities.push_back(w2Ve);
@@ -1405,6 +1398,89 @@ int main() {
             isDropdownOpen = false;
         }
         
+        // --- Interactive Mouse Dragging System ---
+        static bool isDraggingEntity = false;
+        static Velox::EntityID draggedEntityId = 0;
+        static bool draggedIsSandbox = false;
+        static Vector2 dragLocalOffset = {0.0f, 0.0f};
+
+        // Reset drag when scene switches
+        if (sceneChanged) {
+            isDraggingEntity = false;
+            draggedEntityId = 0;
+        }
+
+        // Mouse Dragging for supported scenes (Joints, Revolute/Prismatic, Sandbox, Stacking, Ragdoll)
+        bool allowMouseDrag = (currentScene == SceneType::JointDemo ||
+                               currentScene == SceneType::RevolutePrismaticDemo ||
+                               currentScene == SceneType::SandboxDemo ||
+                               currentScene == SceneType::SleepingShowcase ||
+                               currentScene == SceneType::RagdollNetwork ||
+                               currentScene == SceneType::SoftBodyStacking);
+
+        if (allowMouseDrag) {
+            Vector2 mouse = GetMousePosition();
+            if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && mouse.x < screenWidth - 350) {
+                // Find nearest dynamic entity under mouse
+                float bestDistSq = 45.0f * 45.0f;
+                Velox::EntityID hitId = 0;
+                bool isSandboxShape = false;
+                Vector2 hitPos = {0.0f, 0.0f};
+
+                for (const auto& ve : entities) {
+                    if (ve.type == 2) continue; // Skip force fields
+                    if (Velox_IsStatic(world, ve.id)) continue; // Never drag immovable static anchors
+                    float ex, ey, erot;
+                    Velox_GetPosition(world, ve.id, &ex, &ey, &erot);
+                    float dSq = (mouse.x - ex)*(mouse.x - ex) + (mouse.y - ey)*(mouse.y - ey);
+                    if (dSq < bestDistSq) {
+                        bestDistSq = dSq;
+                        hitId = ve.id;
+                        hitPos = {ex, ey};
+                        isSandboxShape = false;
+                    }
+                }
+
+                for (const auto& sb : g_sandboxShapes) {
+                    if (Velox_IsStatic(world, sb.id)) continue; // Never drag immovable static anchors
+                    float ex, ey, erot;
+                    Velox_GetPosition(world, sb.id, &ex, &ey, &erot);
+                    float dSq = (mouse.x - ex)*(mouse.x - ex) + (mouse.y - ey)*(mouse.y - ey);
+                    if (dSq < bestDistSq) {
+                        bestDistSq = dSq;
+                        hitId = sb.id;
+                        hitPos = {ex, ey};
+                        isSandboxShape = true;
+                    }
+                }
+
+                if (hitId != 0) {
+                    isDraggingEntity = true;
+                    draggedEntityId = hitId;
+                    draggedIsSandbox = isSandboxShape;
+                    dragLocalOffset = {hitPos.x - mouse.x, hitPos.y - mouse.y};
+                    Velox_WakeTouching(world, hitId);
+                }
+            }
+
+            if (isDraggingEntity && IsMouseButtonDown(MOUSE_LEFT_BUTTON)) {
+                Vector2 mouse = GetMousePosition();
+                float targetX = mouse.x + dragLocalOffset.x;
+                float targetY = mouse.y + dragLocalOffset.y;
+                float curX, curY, curRot;
+                Velox_GetPosition(world, draggedEntityId, &curX, &curY, &curRot);
+                Velox_SetPosition(world, draggedEntityId, targetX, targetY);
+                // Impart smooth throw velocity
+                Velox_SetVelocity(world, draggedEntityId, (targetX - curX) * 35.0f, (targetY - curY) * 35.0f);
+                Velox_WakeTouching(world, draggedEntityId);
+            }
+
+            if (isDraggingEntity && IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
+                isDraggingEntity = false;
+                draggedEntityId = 0;
+            }
+        }
+
         // Mouse Spawning (Force Field Demo)
         if (currentScene == SceneType::ForceFieldDemo && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
             Vector2 mouse = GetMousePosition();
@@ -1426,35 +1502,35 @@ int main() {
             entities.push_back(ve);
         }
 
-        // Mouse Shooting (Projectile Demo)
+        // Mouse Shooting (Projectile Demo) - High Impulse Heavy Cannonball
         if (currentScene == SceneType::ProjectileDemo && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
             Vector2 mouse = GetMousePosition();
-            float spawnX = 100.0f;
-            float spawnY = screenHeight - 100.0f;
+            float spawnX = 90.0f;
+            float spawnY = (float)screenHeight - 90.0f;
             
             auto id = Velox_CreateEntity(world);
             Velox_AddTransform(world, id, spawnX, spawnY, 0.0f);
-            Velox_AddRigidBody(world, id, 1.0f, false);
+            Velox_AddRigidBody(world, id, 6.0f, false); // Heavy mass for destruction
             Velox_AddMovement(world, id);
-            Velox_AddBoxCollider(world, id, 40.0f, 10.0f); // Arrow shape
-            // FaceVelocity=true, Speed=0 (set later), MaxSpeed=1000, BounceFactor=0.1 (stick)
-            Velox_AddProjectile(world, id, true, 0.0f, 1000.0f, 0.01f);
+            Velox_AddCircleCollider(world, id, 16.0f); // High-momentum cannonball
+            Velox_AddPhysicalMaterial(world, id, 0.4f, 0.3f, 0.4f);
+            Velox_SetDamping(world, id, 0.005f, 0.005f);
             
-            // Calculate velocity towards mouse
+            // Calculate high-impulse velocity towards mouse cursor
             float dx = mouse.x - spawnX;
             float dy = mouse.y - spawnY;
             float len = sqrt(dx*dx + dy*dy);
-            float speed = 800.0f;
-            Velox_SetVelocity(world, id, (dx/len)*speed, (dy/len)*speed);
+            if (len < 1.0f) len = 1.0f;
+            float launchSpeed = 1800.0f; // High impulse muzzle velocity
+            Velox_SetVelocity(world, id, (dx/len) * launchSpeed, (dy/len) * launchSpeed);
 
             VisualEntity ve;
             ve.id = id;
-            ve.color = YELLOW;
-            ve.type = 1; // Box
-            ve.width = 40.0f;
-            ve.height = 10.0f;
+            ve.color = RED;
+            ve.type = 0; // Cannonball Circle
+            ve.radius = 16.0f;
             ve.spawnTime = gameTime;
-            ve.isProjectile = false;
+            ve.isProjectile = true;
             entities.push_back(ve);
         }
         
@@ -1815,6 +1891,18 @@ int main() {
                 }
             }
 
+            // Draw Projectile Cannon Aim Guide
+            if (currentScene == SceneType::ProjectileDemo) {
+                Vector2 mouse = GetMousePosition();
+                Vector2 cannonPos = { 90.0f, (float)screenHeight - 90.0f };
+                // Draw dotted/solid aim guide line
+                DrawLineEx(cannonPos, mouse, 2.0f, Fade(RED, 0.6f));
+                DrawCircleV(cannonPos, 18.0f, DARKGRAY);
+                DrawCircleLines((int)cannonPos.x, (int)cannonPos.y, 18, RED);
+                DrawCircleV(mouse, 6.0f, Fade(RED, 0.8f));
+                DrawCircleLines((int)mouse.x, (int)mouse.y, 10, WHITE);
+            }
+
             for (const auto& ve : entities) {
                 float x, y, rot;
                 Velox_GetPosition(world, ve.id, &x, &y, &rot);
@@ -1918,11 +2006,11 @@ int main() {
                 DrawText("Green: Vertical (Y-Axis)", widgetX + 10, widgetY + 150, 9, Fade(GREEN, 0.8f));
                 DrawText("Blue: Diagonal", widgetX + 10, widgetY + 165, 9, Fade(BLUE, 0.8f));
             } else if (currentScene == SceneType::ProjectileDemo) {
-                DrawText("Sim: Projectile Demo", widgetX + 10, widgetY + 65, 10, YELLOW);
+                DrawText("Sim: Cannon Projectile Demo", widgetX + 10, widgetY + 65, 10, YELLOW);
                 DrawText("Controls:", widgetX + 10, widgetY + 85, 10, GRAY);
-                DrawText("- Click: Shoot Arrow", widgetX + 10, widgetY + 100, 10, GRAY);
+                DrawText("- Click: Fire Heavy Cannonball", widgetX + 10, widgetY + 100, 10, GRAY);
                 DrawText("- Space: Pause", widgetX + 10, widgetY + 115, 10, GRAY);
-                DrawText("Aim with mouse!", widgetX + 10, widgetY + 135, 10, ORANGE);
+                DrawText("Aim with mouse red crosshair!", widgetX + 10, widgetY + 135, 10, RED);
             } else if (currentScene == SceneType::GravityDemo) {
                 DrawText("Sim: Gravity Direction Demo", widgetX + 10, widgetY + 65, 10, YELLOW);
                 DrawText("Controls:", widgetX + 10, widgetY + 85, 10, GRAY);

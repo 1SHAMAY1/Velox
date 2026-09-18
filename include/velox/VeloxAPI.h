@@ -97,6 +97,9 @@ extern "C" {
     /// Sets `entity`'s linear and angular velocity damping (requires a MovementComponent).
     VELOX_API void Velox_SetDamping(VeloxWorld* world, Velox::EntityID entity, float linear, float angular);
 
+    /// Locks or unlocks rotational motion for `entity`. When true, entity cannot rotate.
+    VELOX_API void Velox_SetFixedRotation(VeloxWorld* world, Velox::EntityID entity, bool fixedRotation);
+
     /// Wakes a specific body from sleep.
     VELOX_API void Velox_WakeBody(VeloxWorld* world, Velox::EntityID entity);
 
@@ -110,6 +113,7 @@ extern "C" {
     VELOX_API void Velox_GetPosition(VeloxWorld* world, Velox::EntityID entity, float* x, float* y, float* rotation);
     VELOX_API void Velox_GetVelocity(VeloxWorld* world, Velox::EntityID entity, float* vx, float* vy, float* angularVelocity);
     VELOX_API bool Velox_IsSleeping(VeloxWorld* world, Velox::EntityID entity);
+    VELOX_API bool Velox_IsStatic(VeloxWorld* world, Velox::EntityID entity);
 
     // --- Gravity Configuration ---
 
